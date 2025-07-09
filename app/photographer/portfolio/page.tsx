@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Star, MapPin, Camera, Heart, MessageCircle, Share, Bookmark, MoreHorizontal } from "lucide-react"
+import { ArrowLeft, Star, MapPin, Camera, Heart, MessageCircle, Share, Bookmark, MoreHorizontal, Phone } from "lucide-react"
 import { GlitterBackground } from "@/components/glitter-background"
 
 // Define interfaces for fetched data
