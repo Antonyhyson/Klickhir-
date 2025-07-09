@@ -1,3 +1,4 @@
+// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/page.tsx
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -40,20 +41,20 @@ export default function HomePage() {
       </header>
 
       {/* Sophisticated Hero Section */}
-      <section className="hero-section sandstorm-container py-32 relative">
+      <section className="hero-section sandstorm-container py-32 relative flex items-center justify-center min-h-[calc(100vh-65px)]">
         <SandstormBackground />
-        <div className="container mx-auto px-4 text-center relative z-10">
-          <h1 className="hero-title mb-8">ClickHire</h1>
-          <p className="hero-subtitle mb-16 max-w-4xl mx-auto">
+        <div className="container mx-auto px-4 text-center relative z-10 animate-fade-in-up">
+          <h1 className="hero-title mb-8 animate-slide-in-left">ClickHire</h1>
+          <p className="hero-subtitle mb-16 max-w-4xl mx-auto animate-slide-in-right">
             Connect with exceptional photographers worldwide. Experience seamless collaboration, verified professionals,
             and unparalleled creative excellence.
           </p>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto animate-fade-in-up-delay">
             {/* Client Card */}
-            <Card className="refined-card">
+            <Card className="refined-card transform transition-transform duration-300 hover:scale-[1.02] hover:shadow-2xl hover:border-blue-300">
               <CardHeader className="text-center pb-6">
-                <div className="relative mx-auto mb-6">
+                <div className="relative mx-auto mb-6 transform transition-transform duration-500 group-hover:rotate-6 group-hover:scale-110">
                   <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 rounded-2xl flex items-center justify-center">
                     <Users className="h-8 w-8 text-slate-700 dark:text-slate-300" />
                   </div>
@@ -84,9 +85,9 @@ export default function HomePage() {
             </Card>
 
             {/* Photographer Card */}
-            <Card className="refined-card">
+            <Card className="refined-card transform transition-transform duration-300 hover:scale-[1.02] hover:shadow-2xl hover:border-emerald-300">
               <CardHeader className="text-center pb-6">
-                <div className="relative mx-auto mb-6">
+                <div className="relative mx-auto mb-6 transform transition-transform duration-500 group-hover:-rotate-6 group-hover:scale-110">
                   <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 rounded-2xl flex items-center justify-center">
                     <Camera className="h-8 w-8 text-slate-700 dark:text-slate-300" />
                   </div>
@@ -125,15 +126,15 @@ export default function HomePage() {
       <section className="bg-gradient-to-b from-slate-50/50 to-white py-24 relative z-10 dark:from-slate-900/50 dark:to-slate-800 amoled:from-black/50 amoled:to-black">
         <div className="container mx-auto px-4">
           <div className="text-center mb-20">
-            <h2 className="text-4xl font-light mb-6 text-slate-800 dark:text-white">Why Choose ClickHire?</h2>
-            <p className="text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto font-light leading-relaxed">
+            <h2 className="text-4xl font-light mb-6 text-slate-800 dark:text-white animate-fade-in-up">Why Choose ClickHire?</h2>
+            <p className="text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto font-light leading-relaxed animate-fade-in-up-delay">
               Experience the future of creative collaboration with our sophisticated platform designed for professionals
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-12">
-            <div className="text-center group">
-              <div className="relative mx-auto mb-8 w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 rounded-3xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-500">
+            <div className="text-center group p-4 rounded-lg transition-all duration-300 hover:bg-slate-100/50 dark:hover:bg-slate-700/30">
+              <div className="relative mx-auto mb-8 w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 rounded-3xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-500 animate-bounce-in">
                 <Globe className="h-10 w-10 text-slate-700 dark:text-slate-300" />
                 <div className="verification-dot absolute -top-1 -right-1"></div>
               </div>
@@ -144,8 +145,8 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div className="text-center group">
-              <div className="relative mx-auto mb-8 w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 rounded-3xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-500">
+            <div className="text-center group p-4 rounded-lg transition-all duration-300 hover:bg-slate-100/50 dark:hover:bg-slate-700/30">
+              <div className="relative mx-auto mb-8 w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 rounded-3xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-500 animate-bounce-in-delay-1">
                 <Shield className="h-10 w-10 text-slate-700 dark:text-slate-300" />
                 <div className="verification-dot absolute -top-1 -right-1"></div>
               </div>
@@ -156,8 +157,8 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div className="text-center group">
-              <div className="relative mx-auto mb-8 w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 rounded-3xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-500">
+            <div className="text-center group p-4 rounded-lg transition-all duration-300 hover:bg-slate-100/50 dark:hover:bg-slate-700/30">
+              <div className="relative mx-auto mb-8 w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 rounded-3xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-500 animate-bounce-in-delay-2">
                 <Star className="h-10 w-10 text-slate-700 dark:text-slate-300" />
                 <div className="verification-dot absolute -top-1 -right-1"></div>
               </div>

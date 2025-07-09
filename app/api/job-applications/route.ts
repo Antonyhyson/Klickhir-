@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Job ID is required" }, { status: 400 });
     }
 
-    const [job] = await sql`SELECT id FROM jobs WHERE id = ${jobId}`;
+    const [job] = await sql`SELECT id, client_id, title FROM jobs WHERE id = ${jobId}`;
     if (!job) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "You have already applied for this job" }, { status: 409 });
     }
 
+    // Insert new job application
     const [application] = await sql`
       INSERT INTO job_applications (job_id, photographer_id, message, proposed_rate, status)
       VALUES (
@@ -49,6 +50,16 @@ export async function POST(request: NextRequest) {
       )
       RETURNING id, status, applied_at;
     `;
+
+    // Create notification for the client
+    const [photographerUser] = await sql`SELECT first_name, last_name FROM users WHERE id = ${decoded.userId}`;
+    if (photographerUser) {
+      const notificationMessage = `A new application for your job '${job.title}' has been received from ${photographerUser.first_name} ${photographerUser.last_name}.`;
+      await sql`
+        INSERT INTO notifications (user_id, type, entity_id, message, is_read)
+        VALUES (${job.client_id}, 'job_application_received', ${application.id}, ${notificationMessage}, FALSE);
+      `;
+    }
 
     return NextResponse.json(
       {
@@ -81,8 +92,8 @@ export async function GET(request: NextRequest) {
 
 
     const { searchParams } = new URL(request.url);
-    const jobId = searchParams.get("jobId"); // Optional: filter by specific job
-    const status = searchParams.get("status"); // Optional: filter by application status
+    const jobId = searchParams.get("jobId");
+    const status = searchParams.get("status");
 
     let query = `
       SELECT
@@ -100,7 +111,8 @@ export async function GET(request: NextRequest) {
         pp.rating AS "photographerRating",
         pp.total_reviews AS "photographerReviews",
         j.title AS "jobTitle",
-        j.client_id AS "jobClientId"
+        j.client_id AS "jobClientId",
+        j.is_collaboration AS "isCollaboration" -- Added to determine if it's a collaboration job
       FROM job_applications ja
       JOIN users u ON ja.photographer_id = u.id
       LEFT JOIN photographer_profiles pp ON u.id = pp.user_id
@@ -145,10 +157,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Only clients can update application status" }, { status: 403 });
     }
 
-    // Extract application ID from URL path (e.g., /api/job-applications/some-id)
     const { pathname } = new URL(request.url);
     const segments = pathname.split('/');
-    const applicationId = segments[segments.length - 1]; // Get the ID from the URL last segment
+    const applicationId = segments[segments.length - 1];
 
     if (!applicationId) {
       return NextResponse.json({ error: "Application ID is required" }, { status: 400 });
@@ -160,9 +171,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Invalid new status provided. Must be 'accepted', 'rejected', or 'pending'." }, { status: 400 });
     }
 
-    // Verify that the client owns the job associated with this application
     const [applicationCheck] = await sql`
-      SELECT ja.job_id, j.client_id
+      SELECT ja.job_id, ja.photographer_id, j.client_id, j.title, j.is_collaboration
       FROM job_applications ja
       JOIN jobs j ON ja.job_id = j.id
       WHERE ja.id = ${applicationId}
@@ -183,12 +193,41 @@ export async function PUT(request: NextRequest) {
       RETURNING id, status;
     `;
 
-    // Handle cascading effects if an application is accepted:
-    // If a job application is accepted, you might want to:
-    // 1. Set the job status to 'in_progress' or 'closed'.
-    // 2. Reject other applications for the same job.
-    // 3. Potentially create a contract or assign the photographer.
-    // For simplicity in this step, we are only updating the single application status.
+    // --- NEW: Cascading effects if an application is accepted ---
+    if (newStatus === 'accepted') {
+        await sql.begin(async (sql) => {
+            // 1. Update job status to 'in_progress'
+            await sql`
+                UPDATE jobs
+                SET status = 'in_progress', updated_at = NOW()
+                WHERE id = ${applicationCheck.job_id};
+            `;
+
+            // 2. If it's not a collaboration job, reject other pending applications for this job
+            if (!applicationCheck.is_collaboration) {
+                await sql`
+                    UPDATE job_applications
+                    SET status = 'rejected'
+                    WHERE job_id = ${applicationCheck.job_id}
+                    AND id != ${applicationId}
+                    AND status = 'pending';
+                `;
+                // Optionally notify those rejected applicants.
+            }
+        });
+    }
+    // --- END NEW ---
+
+    // Create notification for the photographer
+    const [photographerUser] = await sql`SELECT first_name, last_name FROM users WHERE id = ${applicationCheck.photographer_id}`;
+    if (photographerUser) {
+      const notificationType = newStatus === 'accepted' ? 'application_accepted' : 'application_rejected';
+      const notificationMessage = `Your application for job '${applicationCheck.title}' has been ${newStatus}.`;
+      await sql`
+        INSERT INTO notifications (user_id, type, entity_id, message, is_read)
+        VALUES (${applicationCheck.photographer_id}, ${notificationType}, ${applicationId}, ${notificationMessage}, FALSE);
+      `;
+    }
 
     return NextResponse.json(
       {

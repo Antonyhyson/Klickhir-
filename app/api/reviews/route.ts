@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     // Verify job and photographer, and that the client is authorized to review this job
     const [jobDetails] = await sql`
-      SELECT client_id, status FROM jobs WHERE id = ${jobId}
+      SELECT client_id, status, title FROM jobs WHERE id = ${jobId}
     `;
 
     if (!jobDetails) {
@@ -41,10 +41,6 @@ export async function POST(request: NextRequest) {
     if (jobDetails.client_id !== decoded.userId) {
       return NextResponse.json({ error: "You are not authorized to review this job" }, { status: 403 });
     }
-    // Ideally, check if the job is 'completed'. For now, we'll allow it.
-    // if (jobDetails.status !== 'completed') {
-    //   return NextResponse.json({ error: "Job must be completed to submit a review" }, { status: 400 });
-    // }
 
     // Check if review already exists for this job
     const [existingReview] = await sql`
@@ -78,6 +74,16 @@ export async function POST(request: NextRequest) {
       `;
     });
 
+    // --- NEW: Create notification for the photographer ---
+    const [clientUser] = await sql`SELECT first_name, last_name FROM users WHERE id = ${decoded.userId}`;
+    if (clientUser) {
+        const notificationMessage = `You have received a new ${newReview.rating}-star review for job '${jobDetails.title}' from ${clientUser.first_name} ${clientUser.last_name}.`;
+        await sql`
+            INSERT INTO notifications (user_id, type, entity_id, message, is_read)
+            VALUES (${photographerId}, 'review_submitted', ${newReview.id}, ${notificationMessage}, FALSE);
+        `;
+    }
+    // --- END NEW ---
 
     return NextResponse.json(
       {

@@ -7,14 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Star, MapPin, Camera, Clock, DollarSign, Users, Briefcase, TrendingUp, Send } from "lucide-react" // Added Send icon
+import { Star, MapPin, Camera, Clock, DollarSign, Users, Briefcase, TrendingUp, Send, Loader2, Filter, X } from "lucide-react"
 import { GlitterBackground } from "@/components/glitter-background"
 import Link from "next/link"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog" // Import Dialog components
-import { Textarea } from "@/components/ui/textarea" // Import Textarea
-import { Input } from "@/components/ui/input" // Import Input
-import { Label } from "@/components/ui/label" // Import Label
-import { toast } from "@/hooks/use-toast" // Import toast for notifications
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { toast } from "@/hooks/use-toast"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 
 interface Job {
@@ -40,6 +41,31 @@ interface Job {
   is_featured?: boolean;
 }
 
+interface DashboardStats {
+  activeJobs: number;
+  rating: string;
+  thisMonthEarnings: string;
+  successRate: string;
+}
+
+// Interface for current user profile from /api/users/me (photographer specific)
+interface CurrentUserProfile {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  profile_image_url?: string;
+  // Add other fields relevant to photographer profile if needed, like specialties
+}
+
+
+const photographyTypes = [
+  "Wedding Photography", "Portrait Photography", "Event Photography",
+  "Corporate Photography", "Product Photography", "Fashion Photography",
+  "Real Estate Photography", "Food Photography", "Travel Photography",
+  "Street Photography", "Documentary Photography", "Commercial Photography",
+];
+
 export default function PhotographerDashboard() {
   const [activeTab, setActiveTab] = useState("nearby")
   const [nearbyJobs, setNearbyJobs] = useState<Job[]>([])
@@ -54,71 +80,144 @@ export default function PhotographerDashboard() {
   const [applicationMessage, setApplicationMessage] = useState("")
   const [proposedRate, setProposedRate] = useState("")
   const [isSubmittingApplication, setIsSubmittingApplication] = useState(false)
-  const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set()) // Keep track of applied jobs
+  const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set())
 
-  const fetchJobs = async (isCollaboration: boolean) => {
-    if (isCollaboration) setLoadingCollaboration(true); else setLoadingNearby(true);
-    if (isCollaboration) setErrorCollaboration(null); else setErrorNearby(null);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [errorStats, setErrorStats] = useState<string | null>(null);
 
-    try {
-      const queryParams = new URLSearchParams({
-        userType: "photographer",
-        status: "open",
-        collaboration: isCollaboration ? "true" : "false",
-      }).toString();
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [filterJobType, setFilterJobType] = useState<string | null>(null);
+  const [filterMinBudget, setFilterMinBudget] = useState<string>("");
+  const [filterMaxBudget, setFilterMaxBudget] = useState<string>("");
+  const [filterUrgency, setFilterUrgency] = useState<"true" | "false" | null>(null);
+  const [appliedFilters, setAppliedFilters] = useState({
+    type: null as string | null,
+    minBudget: "",
+    maxBudget: "",
+    urgency: null as "true" | "false" | null,
+  });
 
-      const response = await fetch(`/api/jobs?${queryParams}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
+  const [currentUserProfile, setCurrentUserProfile] = useState<CurrentUserProfile | null>(null);
+  const [loadingUserProfile, setLoadingUserProfile] = useState(true);
+  const [errorUserProfile, setErrorUserProfile] = useState<string | null>(null);
 
-      const mappedJobs: Job[] = data.jobs.map((job: any) => ({
-        id: job.id,
-        title: job.title,
-        client_id: job.client_id,
-        client_first_name: job.first_name,
-        client_last_name: job.last_name,
-        location: job.location,
-        distance: `${(Math.random() * 10 + 1).toFixed(1)} miles`,
-        job_date: new Date(job.job_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-        job_time: job.job_time.substring(0, 5),
-        duration_hours: job.duration_hours,
-        budget: job.budget,
-        currency: job.currency,
-        photography_type: job.photography_type,
-        is_urgent: job.is_urgent,
-        description: job.description,
-        is_collaboration: job.is_collaboration,
-        photographers_needed: job.photographers_needed,
-        application_count: job.application_count,
-        status: job.status,
-        is_featured: job.is_featured || (isCollaboration && Math.random() > 0.5)
-      }));
 
-      if (isCollaboration) {
-        setCollaborationJobs(mappedJobs);
-      } else {
-        setNearbyJobs(mappedJobs);
-      }
-    } catch (e: any) {
-      console.error(`Failed to fetch ${isCollaboration ? 'collaboration' : 'nearby'} jobs:`, e);
-      if (isCollaboration) setErrorCollaboration("Failed to load collaboration jobs.");
-      else setErrorNearby("Failed to load nearby jobs.");
-    } finally {
-      if (isCollaboration) setLoadingCollaboration(false); else setLoadingNearby(false);
-    }
-  };
-
+  // Fetch current user's profile for the header avatar/links
   useEffect(() => {
+    const fetchUserProfile = async () => {
+      setLoadingUserProfile(true);
+      setErrorUserProfile(null);
+      try {
+        const response = await fetch("/api/users/me");
+        if (!response.ok) {
+          throw new Error(`Failed to fetch user profile: ${response.status}`);
+        }
+        const data = await response.json();
+        setCurrentUserProfile(data.user);
+      } catch (e: any) {
+        console.error("Error fetching user profile:", e);
+        setErrorUserProfile("Failed to load user profile for header.");
+      } finally {
+        setLoadingUserProfile(false);
+      }
+    };
+    fetchUserProfile();
+  }, []);
+
+
+  // Fetch dashboard stats
+  useEffect(() => {
+    const fetchDashboardStats = async () => {
+      setLoadingStats(true);
+      setErrorStats(null);
+      try {
+        const response = await fetch("/api/photographer/dashboard-stats");
+        if (!response.ok) {
+          throw new Error(`Failed to fetch stats: ${response.status}`);
+        }
+        const data = await response.json();
+        setDashboardStats(data);
+      } catch (e: any) {
+        console.error("Error fetching photographer dashboard stats:", e);
+        setErrorStats("Failed to load dashboard stats.");
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+    fetchDashboardStats();
+  }, []);
+
+
+  // Fetch job listings - now includes filters
+  useEffect(() => {
+    const fetchJobs = async (isCollaboration: boolean) => {
+      if (isCollaboration) setLoadingCollaboration(true); else setLoadingNearby(true);
+      if (isCollaboration) setErrorCollaboration(null); else setErrorNearby(null);
+
+      try {
+        const queryParams = new URLSearchParams({
+          userType: "photographer",
+          status: "open",
+          collaboration: isCollaboration ? "true" : "false",
+        });
+
+        if (filterJobType) queryParams.append("photographyType", filterJobType);
+        if (filterMinBudget) queryParams.append("minBudget", filterMinBudget);
+        if (filterMaxBudget) queryParams.append("maxBudget", filterMaxBudget);
+        if (filterUrgency) queryParams.append("isUrgent", filterUrgency);
+
+        const response = await fetch(`/api/jobs?${queryParams.toString()}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+
+        const mappedJobs: Job[] = data.jobs.map((job: any) => ({
+          id: job.id,
+          title: job.title,
+          client_id: job.client_id,
+          client_first_name: job.first_name,
+          client_last_name: job.last_name,
+          location: job.location,
+          distance: `${(Math.random() * 10 + 1).toFixed(1)} miles`,
+          job_date: new Date(job.job_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+          job_time: job.job_time.substring(0, 5),
+          duration_hours: job.duration_hours,
+          budget: job.budget,
+          currency: job.currency,
+          photography_type: job.photography_type,
+          is_urgent: job.is_urgent,
+          description: job.description,
+          is_collaboration: job.is_collaboration,
+          photographers_needed: job.photographers_needed,
+          application_count: job.application_count,
+          status: job.status,
+          is_featured: job.is_featured || (isCollaboration && Math.random() > 0.5)
+        }));
+
+        if (isCollaboration) {
+          setCollaborationJobs(mappedJobs);
+        } else {
+          setNearbyJobs(mappedJobs);
+        }
+      } catch (e: any) {
+        console.error(`Failed to fetch ${isCollaboration ? 'collaboration' : 'nearby'} jobs:`, e);
+        if (isCollaboration) setErrorCollaboration("Failed to load collaboration jobs.");
+        else setErrorNearby("Failed to load nearby jobs.");
+      } finally {
+        if (isCollaboration) setLoadingCollaboration(false); else setLoadingNearby(false);
+      }
+    };
+
     fetchJobs(false);
     fetchJobs(true);
-  }, []);
+  }, [filterJobType, filterMinBudget, filterMaxBudget, filterUrgency]);
 
   const handleApplyClick = (job: Job) => {
     setSelectedJobToApply(job);
     setApplicationMessage(`Dear ${job.client_first_name} ${job.client_last_name},\n\nI am very interested in your job posting "${job.title}". I believe my skills and experience would be a great fit for this project.\n\nLooking forward to discussing this further.\n\nBest regards,\n[Your Name]`);
-    setProposedRate(job.budget.toString()); // Pre-fill with job's budget
+    setProposedRate(job.budget.toString());
     setIsApplyModalOpen(true);
   };
 
@@ -147,7 +246,7 @@ export default function PhotographerDashboard() {
           description: data.message,
           variant: "default",
         });
-        setAppliedJobs(prev => new Set(prev).add(selectedJobToApply.id)); // Mark job as applied
+        setAppliedJobs(prev => new Set(prev).add(selectedJobToApply.id));
         setIsApplyModalOpen(false);
         setSelectedJobToApply(null);
         setApplicationMessage("");
@@ -171,6 +270,37 @@ export default function PhotographerDashboard() {
     }
   };
 
+  const handleApplyFilters = () => {
+    setAppliedFilters({
+      type: filterJobType,
+      minBudget: filterMinBudget,
+      maxBudget: filterMaxBudget,
+      urgency: filterUrgency,
+    });
+    setIsFilterModalOpen(false);
+  };
+
+  const handleClearFilters = () => {
+    setFilterJobType(null);
+    setFilterMinBudget("");
+    setFilterMaxBudget("");
+    setFilterUrgency(null);
+    setAppliedFilters({
+      type: null,
+      minBudget: "",
+      maxBudget: "",
+      urgency: null,
+    });
+    setIsFilterModalOpen(false);
+  };
+
+  const isAnyFilterActive =
+    appliedFilters.type ||
+    appliedFilters.minBudget ||
+    appliedFilters.maxBudget ||
+    appliedFilters.urgency;
+
+
   return (
     <div className="min-h-screen relative">
       <GlitterBackground />
@@ -193,11 +323,24 @@ export default function PhotographerDashboard() {
                 <Link href="/photographer/portfolio">
                   <Button variant="outline">My Portfolio</Button>
                 </Link>
-                <Button variant="outline">Settings</Button>
-                <Avatar>
-                  <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                  <AvatarFallback>SP</AvatarFallback>
-                </Avatar>
+                <Link href="/photographer/profile"> {/* Link to photographer's own profile page */}
+                    <Button variant="outline">Settings</Button>
+                </Link>
+                <Link href="/photographer/profile"> {/* Make Avatar clickable to profile */}
+                    <Avatar>
+                        {loadingUserProfile ? (
+                            <Loader2 className="h-full w-full animate-spin text-gray-400" />
+                        ) : errorUserProfile ? (
+                            // Fallback icon on error
+                            <Users className="h-full w-full text-red-500" />
+                        ) : (
+                            <AvatarImage src={currentUserProfile?.profile_image_url || "/placeholder.svg?height=32&width=32"} />
+                        )}
+                        <AvatarFallback>
+                            {currentUserProfile ? `${currentUserProfile.first_name[0]}${currentUserProfile.last_name[0]}` : 'SP'}
+                        </AvatarFallback>
+                    </Avatar>
+                </Link>
               </div>
             </div>
           </div>
@@ -206,53 +349,82 @@ export default function PhotographerDashboard() {
         <div className="container mx-auto px-4 py-8">
           {/* Stats Overview */}
           <div className="grid md:grid-cols-4 gap-6 mb-8">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-2">
-                  <Briefcase className="h-8 w-8 text-blue-600" />
-                  <div>
-                    <p className="text-2xl font-bold">12</p>
-                    <p className="text-sm text-gray-600">Active Jobs</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {loadingStats ? (
+              <>
+                {[...Array(4)].map((_, i) => (
+                  <Card key={i}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center space-x-2">
+                        <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                        <div>
+                          <p className="text-2xl font-bold">---</p>
+                          <p className="text-sm text-gray-600">Loading...</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </>
+            ) : errorStats ? (
+              <Card className="col-span-full border-red-500">
+                <CardHeader>
+                  <CardTitle className="text-lg text-red-700">Error Loading Stats</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-red-600">{errorStats}</p>
+                </CardContent>
+              </Card>
+            ) : dashboardStats ? (
+              <>
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center space-x-2">
+                      <Briefcase className="h-8 w-8 text-blue-600" />
+                      <div>
+                        <p className="text-2xl font-bold">{dashboardStats.activeJobs}</p>
+                        <p className="text-sm text-gray-600">Active Jobs</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-2">
-                  <Star className="h-8 w-8 text-yellow-500" />
-                  <div>
-                    <p className="text-2xl font-bold">4.8</p>
-                    <p className="text-sm text-gray-600">Rating</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center space-x-2">
+                      <Star className="h-8 w-8 text-yellow-500" />
+                      <div>
+                        <p className="text-2xl font-bold">{dashboardStats.rating}</p>
+                        <p className="text-sm text-gray-600">Rating</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-2">
-                  <DollarSign className="h-8 w-8 text-green-600" />
-                  <div>
-                    <p className="text-2xl font-bold">$8.5K</p>
-                    <p className="text-sm text-gray-600">This Month</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center space-x-2">
+                      <DollarSign className="h-8 w-8 text-green-600" />
+                      <div>
+                        <p className="text-2xl font-bold">${dashboardStats.thisMonthEarnings}</p> {/* Removed K, assuming API formats correctly */}
+                        <p className="text-sm text-gray-600">This Month</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="h-8 w-8 text-purple-600" />
-                  <div>
-                    <p className="text-2xl font-bold">89%</p>
-                    <p className="text-sm text-gray-600">Success Rate</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center space-x-2">
+                      <TrendingUp className="h-8 w-8 text-purple-600" />
+                      <div>
+                        <p className="text-2xl font-bold">{dashboardStats.successRate}%</p>
+                        <p className="text-sm text-gray-600">Success Rate</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : null}
           </div>
 
           {/* Main Content */}
@@ -266,8 +438,21 @@ export default function PhotographerDashboard() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-semibold">Jobs Near You</h2>
-                  <Button variant="outline">Filter Jobs</Button>
+                  <Button variant="outline" onClick={() => setIsFilterModalOpen(true)}>
+                    <Filter className="mr-2 h-4 w-4" /> Filter Jobs
+                  </Button>
                 </div>
+
+                {isAnyFilterActive && (
+                    <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+                        <span>Active Filters:</span>
+                        {appliedFilters.type && <Badge variant="secondary">{appliedFilters.type} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
+                        {appliedFilters.minBudget && <Badge variant="secondary">Min Budget: ${appliedFilters.minBudget} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
+                        {appliedFilters.maxBudget && <Badge variant="secondary">Max Budget: ${appliedFilters.maxBudget} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
+                        {appliedFilters.urgency && <Badge variant="secondary">Urgent: {appliedFilters.urgency === "true" ? "Yes" : "No"} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
+                        <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-blue-500 hover:underline">Clear All</Button>
+                    </div>
+                )}
 
                 {loadingNearby && <p className="text-center text-gray-500">Loading nearby jobs...</p>}
                 {errorNearby && <p className="text-center text-red-500">{errorNearby}</p>}
@@ -347,9 +532,20 @@ export default function PhotographerDashboard() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-semibold">Collaboration Opportunities</h2>
-                  <Button variant="outline">View All</Button>
+                  <Button variant="outline" onClick={() => setIsFilterModalOpen(true)}>
+                    <Filter className="mr-2 h-4 w-4" /> Filter Jobs
+                  </Button>
                 </div>
-
+                {isAnyFilterActive && (
+                    <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+                        <span>Active Filters:</span>
+                        {appliedFilters.type && <Badge variant="secondary">{appliedFilters.type} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
+                        {appliedFilters.minBudget && <Badge variant="secondary">Min Budget: ${appliedFilters.minBudget} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
+                        {appliedFilters.maxBudget && <Badge variant="secondary">Max Budget: ${appliedFilters.maxBudget} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
+                        {appliedFilters.urgency && <Badge variant="secondary">Urgent: {appliedFilters.urgency === "true" ? "Yes" : "No"} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
+                        <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-blue-500 hover:underline">Clear All</Button>
+                    </div>
+                )}
                 {loadingCollaboration && <p className="text-center text-gray-500">Loading collaboration opportunities...</p>}
                 {errorCollaboration && <p className="text-center text-red-500">{errorCollaboration}</p>}
 
@@ -402,7 +598,7 @@ export default function PhotographerDashboard() {
 
                           <div className="flex items-center space-x-4 text-sm">
                             <div className="flex items-center">
-                              <Users className="h-4 w-4 mr-1 text-blue-600" />
+                              <Users className="h-4 w-4 mr-1" />
                               <span>{job.photographers_needed} photographers needed</span>
                             </div>
                             <div className="text-gray-600">{job.application_count || 0} applicants</div>
@@ -475,6 +671,85 @@ export default function PhotographerDashboard() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Filter Jobs Modal */}
+      <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Filter Jobs</DialogTitle>
+            <DialogDescription>
+              Apply filters to find specific job opportunities.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="filterJobType">Photography Type</Label>
+              <Select
+                value={filterJobType || ""}
+                onValueChange={(value) => setFilterJobType(value === "" ? null : value)}
+              >
+                <SelectTrigger id="filterJobType">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Types</SelectItem>
+                  {photographyTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="filterMinBudget">Budget Range (USD)</Label>
+              <div className="flex items-center space-x-2">
+                <Input
+                  id="filterMinBudget"
+                  type="number"
+                  placeholder="Min"
+                  value={filterMinBudget}
+                  onChange={(e) => setFilterMinBudget(e.target.value)}
+                  min="0"
+                />
+                <span>-</span>
+                <Input
+                  id="filterMaxBudget"
+                  type="number"
+                  placeholder="Max"
+                  value={filterMaxBudget}
+                  onChange={(e) => setFilterMaxBudget(e.target.value)}
+                  min="0"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="filterUrgency">Urgency</Label>
+              <Select
+                value={filterUrgency || ""}
+                onValueChange={(value) => setFilterUrgency(value === "" ? null : (value as "true" | "false"))}
+              >
+                <SelectTrigger id="filterUrgency">
+                  <SelectValue placeholder="Filter by urgency" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All</SelectItem>
+                  <SelectItem value="true">Urgent Only</SelectItem>
+                  <SelectItem value="false">Not Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleClearFilters}>
+              Clear Filters
+            </Button>
+            <Button onClick={handleApplyFilters}>Apply Filters</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

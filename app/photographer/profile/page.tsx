@@ -1,54 +1,67 @@
 // antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/photographer/profile/page.tsx
 "use client"
 
-import { useState, useEffect } from "react" // Import useEffect
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input" // Import Input for editable fields
-import { Label } from "@/components/ui/label" // Import Label
-import { Textarea } from "@/components/ui/textarea" // Import Textarea
-import { ArrowLeft, Star, MapPin, Share, Phone, MessageCircle, Bookmark, MoreHorizontal, CheckCircle, XCircle } from "lucide-react" // Added CheckCircle, XCircle
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { ArrowLeft, Star, MapPin, Share, Phone, MessageCircle, Bookmark, MoreHorizontal, CheckCircle, XCircle, Heart } from "lucide-react" // Added Heart for posts
 import { GlitterBackground } from "@/components/glitter-background"
+import { Badge } from "@/components/ui/badge" // Import Badge
 
-// Remove mock photographer work posts
+// Removed mock workPosts
 // const workPosts = [...]
 
 // Define interfaces for fetched data
 interface PhotographerProfile {
   id: string;
-  name: string; // Combined first_name and last_name
-  username: string; // Derived from name
+  name: string;
+  username: string;
   email: string;
   phone: string;
   bio: string;
-  location: string; // Maps to location_country
+  location: string;
   rating: number;
-  reviews: number; // Maps to total_reviews
+  reviews: number;
   connections: number;
   projects: number;
-  posts: number; // Count from DB
-  avatar: string; // Maps to profile_image_url
+  posts: number; // Actual count from DB
+  avatar: string;
   specialties: string[];
-  camera_equipment: string[]; // Maps to camera_equipment
-  hourly_rate: number;
-  availability_status: string; // Maps to availability_status
+  camera_equipment: string[];
+  hourlyRate: number;
+  availability_status: string;
   currency: string;
   is_verified?: boolean;
 }
 
-// Separate interface for the form data, as specialties/camera_equipment will be arrays of strings, not just string
+interface PortfolioPost {
+  id: string;
+  project_name: string;
+  description: string;
+  location: string;
+  project_date: string; // Maps to project_date
+  images: string[];
+  likes?: number;
+  comments?: number;
+  shares?: number;
+}
+
+
 interface EditableProfileFormData {
   firstName: string;
   lastName: string;
   phone: string;
-  locationCountry: string; // Maps to location_country
+  locationCountry: string;
   bio: string;
   specialties: string[];
   cameraEquipment: string[];
-  hourlyRate: number | string; // Can be string from input, convert to number on save
+  hourlyRate: number | string;
   availabilityStatus: string;
   profileImageUrl: string;
 }
@@ -56,55 +69,54 @@ interface EditableProfileFormData {
 
 export default function PhotographerProfile() {
   const [photographer, setPhotographer] = useState<PhotographerProfile | null>(null)
-  const [selectedImage, setSelectedImage] = useState<string | null>(null) // For portfolio post image modal
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [isEditing, setIsEditing] = useState(false) // State to toggle edit mode
+  const [profilePosts, setProfilePosts] = useState<PortfolioPost[]>([]) // New state for posts
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true) // For profile data
+  const [loadingPosts, setLoadingPosts] = useState(true) // New loading state for posts
+  const [error, setError] = useState<string | null>(null) // For profile data error
+  const [postsError, setPostsError] = useState<string | null>(null) // New error state for posts
+
+  const [isEditing, setIsEditing] = useState(false)
   const [editableFormData, setEditableFormData] = useState<EditableProfileFormData | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle")
 
-  // Mock work posts for now, as they are not explicitly tied to this user's profile API call
-  const workPosts = [
-    {
-      id: "1",
-      projectName: "Sarah & Mike's Wedding",
-      description:
-        "Beautiful outdoor ceremony at Central Park with golden hour portraits. The love between these two was absolutely magical to capture! ✨ #WeddingPhotography #CentralPark #GoldenHour",
-      location: "Central Park, NY",
-      date: "2024-11-15",
-      images: [
-        "/placeholder.svg?height=400&width=400",
-        "/placeholder.svg?height=400&width=400",
-        "/placeholder.svg?height=400&width=400",
-      ],
-      comments: 18,
-      shares: 12,
-      // tags: ["#wedding", "#love", "#centralpark", "#goldenhour"], // Not used in current render
-    },
-    {
-      id: "2",
-      projectName: "Corporate Headshots - TechCorp",
-      description:
-        "Professional headshots for the amazing team at TechCorp! Each person brought their unique personality to the shoot 💼 #CorporatePhotography #Headshots #Professional",
-      location: "Manhattan, NY",
-      date: "2024-11-10",
-      images: ["/placeholder.svg?height=400&width=400"],
-      comments: 7,
-      shares: 5,
-      // tags: ["#corporate", "#headshots", "#professional"], // Not used in current render
-    },
-  ]
+  const photographyTypes = [
+    "Wedding Photography", "Portrait Photography", "Event Photography",
+    "Corporate Photography", "Product Photography", "Fashion Photography",
+    "Real Estate Photography", "Food Photography", "Travel Photography",
+    "Street Photography", "Documentary Photography", "Commercial Photography",
+  ];
+
+  const cameraKits = [
+    "DSLR Camera Kit", "Mirrorless Camera Kit", "Professional Video Kit",
+    "Drone Photography Kit", "Studio Lighting Kit", "Portrait Photography Kit",
+    "Wedding Photography Kit", "Event Photography Kit", "Commercial Photography Kit",
+    "Fashion Photography Kit",
+  ];
+
+  const countries = [
+    { code: "US", name: "United States", currency: "USD" },
+    { code: "GB", name: "United Kingdom", currency: "GBP" },
+    { code: "CA", name: "Canada", currency: "CAD" },
+    { code: "AU", name: "Australia", currency: "AUD" },
+    { code: "DE", name: "Germany", currency: "EUR" },
+    { code: "FR", name: "France", currency: "EUR" },
+    { code: "JP", name: "Japan", currency: "JPY" },
+    { code: "IN", name: "India", currency: "INR" },
+    { code: "BR", name: "Brazil", currency: "BRL" },
+    { code: "MX", name: "Mexico", currency: "MXN" },
+  ];
 
 
-  // Fetch photographer profile data
+  // Fetch photographer profile data and posts
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchProfileData = async () => {
       setLoading(true)
       setError(null)
       try {
-        const response = await fetch("/api/users/me") // Fetch current user's profile
+        const response = await fetch("/api/users/me")
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
@@ -126,7 +138,6 @@ export default function PhotographerProfile() {
             currency: data.user.currency || "USD",
         };
         setPhotographer(fetchedPhotographer)
-        // Initialize editable form data
         setEditableFormData({
           firstName: data.user.first_name,
           lastName: data.user.last_name,
@@ -147,13 +158,43 @@ export default function PhotographerProfile() {
       }
     }
 
-    fetchProfile()
+    const fetchPosts = async () => {
+      setLoadingPosts(true);
+      setPostsError(null);
+      try {
+        const response = await fetch("/api/portfolio"); // Fetch posts for authenticated user
+        if (!response.ok) {
+          throw new Error(`Failed to fetch posts: ${response.status}`);
+        }
+        const data = await response.json();
+        const fetchedPosts: PortfolioPost[] = data.posts.map((post: any) => ({
+          id: post.id,
+          project_name: post.project_name,
+          description: post.description,
+          location: post.location,
+          project_date: new Date(post.project_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+          images: post.images,
+          likes: Math.floor(Math.random() * 1000) + 50, // Mock likes
+          comments: Math.floor(Math.random() * 50) + 5,  // Mock comments
+          shares: Math.floor(Math.random() * 30) + 2,   // Mock shares
+        }));
+        setProfilePosts(fetchedPosts);
+      } catch (e: any) {
+        console.error("Error fetching portfolio posts:", e);
+        setPostsError("Failed to load portfolio posts.");
+      } finally {
+        setLoadingPosts(false);
+      }
+    };
+
+    fetchProfileData();
+    fetchPosts();
   }, [])
 
 
-  const handleShare = (postId: string) => { // postId is string
+  const handleShare = (postId: string) => {
     if (photographer) {
-      navigator.clipboard.writeText(`${window.location.origin}/photographer/profile?post=${postId}`)
+      navigator.clipboard.writeText(`${window.location.origin}/photographer/portfolio/${photographer.id}?post=${postId}`) // Use consistent portfolio path
       alert("Link copied to clipboard!")
     } else {
       alert("Profile not loaded yet. Cannot share.")
@@ -167,7 +208,7 @@ export default function PhotographerProfile() {
 
   const handleEditClick = () => {
     setIsEditing(true)
-    setSaveMessage(null) // Clear previous save messages
+    setSaveMessage(null)
     setSaveStatus("idle")
   }
 
@@ -175,7 +216,6 @@ export default function PhotographerProfile() {
     setIsEditing(false)
     setSaveMessage(null)
     setSaveStatus("idle")
-    // Revert changes by re-initializing editableFormData from current photographer state
     if (photographer) {
         setEditableFormData({
             firstName: photographer.name.split(' ')[0],
@@ -213,7 +253,7 @@ export default function PhotographerProfile() {
           bio: editableFormData.bio,
           specialties: editableFormData.specialties,
           cameraEquipment: editableFormData.cameraEquipment,
-          hourlyRate: Number(editableFormData.hourlyRate), // Ensure it's a number
+          hourlyRate: Number(editableFormData.hourlyRate),
           availabilityStatus: editableFormData.availabilityStatus,
           profileImageUrl: editableFormData.profileImageUrl,
         }),
@@ -224,10 +264,7 @@ export default function PhotographerProfile() {
       if (response.ok) {
         setSaveStatus("success");
         setSaveMessage("Profile updated successfully!");
-        setIsEditing(false); // Exit edit mode
-        // Re-fetch profile data to ensure UI is fully synced with DB
-        // Or manually update state, but re-fetching is safer for complex updates
-        // For simplicity, manually update the main photographer state
+        setIsEditing(false);
         setPhotographer((prev) => prev ? ({
             ...prev,
             name: `${editableFormData.firstName} ${editableFormData.lastName}`,
@@ -252,7 +289,7 @@ export default function PhotographerProfile() {
       setSaveMessage(err.message || "An unexpected error occurred during save.");
     } finally {
       setIsSaving(false);
-      setTimeout(() => setSaveStatus("idle"), 5000); // Clear status message after 5 seconds
+      setTimeout(() => setSaveStatus("idle"), 5000);
     }
   };
 
@@ -286,27 +323,6 @@ export default function PhotographerProfile() {
       }))
     }
   }
-
-
-  const cameraKits = [
-    "DSLR Camera Kit", "Mirrorless Camera Kit", "Professional Video Kit",
-    "Drone Photography Kit", "Studio Lighting Kit", "Portrait Photography Kit",
-    "Wedding Photography Kit", "Event Photography Kit", "Commercial Photography Kit",
-    "Fashion Photography Kit",
-  ];
-
-  const countries = [
-    { code: "US", name: "United States", currency: "USD" },
-    { code: "GB", name: "United Kingdom", currency: "GBP" },
-    { code: "CA", name: "Canada", currency: "CAD" },
-    { code: "AU", name: "Australia", currency: "AUD" },
-    { code: "DE", name: "Germany", currency: "EUR" },
-    { code: "FR", name: "France", currency: "EUR" },
-    { code: "JP", name: "Japan", currency: "JPY" },
-    { code: "IN", name: "India", currency: "INR" },
-    { code: "BR", name: "Brazil", currency: "BRL" },
-    { code: "MX", name: "Mexico", currency: "MXN" },
-  ];
 
 
   if (loading) {
@@ -625,19 +641,25 @@ export default function PhotographerProfile() {
             </div>
           </div>
 
-          {/* Instagram-style Feed (mocked posts for now) */}
+          {/* Instagram-style Feed (real posts now) */}
           <div className="space-y-8">
-            {workPosts.map((post) => (
+            <h2 className="text-xl font-bold mb-4">My Portfolio Posts</h2>
+            {loadingPosts && <p className="text-center text-gray-500">Loading posts...</p>}
+            {postsError && <p className="text-center text-red-500">{postsError}</p>}
+            {!loadingPosts && !postsError && profilePosts.length === 0 && (
+              <p className="text-center text-gray-500">No portfolio posts found yet. Share your first work!</p>
+            )}
+            {!loadingPosts && !postsError && profilePosts.map((post) => (
               <Card key={post.id} className="bg-white/95 backdrop-blur-sm overflow-hidden">
                 {/* Post Header */}
                 <div className="flex items-center justify-between p-4 border-b">
                   <div className="flex items-center space-x-3">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src="/placeholder.svg?height=32&width=32" />
+                      <AvatarImage src={photographer.avatar || "/placeholder.svg"} />
                       <AvatarFallback>SP</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-semibold text-sm">sarah_parker_photo</p>
+                      <p className="font-semibold text-sm">{photographer.username}</p>
                       <div className="flex items-center text-xs text-gray-600">
                         <MapPin className="h-3 w-3 mr-1" />
                         <span>{post.location}</span>
@@ -654,7 +676,7 @@ export default function PhotographerProfile() {
                   {post.images.length === 1 ? (
                     <img
                       src={post.images[0] || "/placeholder.svg"}
-                      alt={post.projectName}
+                      alt={post.project_name}
                       className="w-full h-96 object-cover cursor-pointer"
                       onClick={() => setSelectedImage(post.images[0])}
                     />
@@ -672,7 +694,7 @@ export default function PhotographerProfile() {
                         <div key={index} className="relative">
                           <img
                             src={image || "/placeholder.svg"}
-                            alt={`${post.projectName} - Image ${index + 1}`}
+                            alt={`${post.project_name} - Image ${index + 1}`}
                             className={`w-full object-cover cursor-pointer ${
                               post.images.length === 2
                                 ? "h-96"
@@ -700,6 +722,9 @@ export default function PhotographerProfile() {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-4">
                       <Button variant="ghost" size="sm" className="p-0 h-auto">
+                        <Heart className="h-6 w-6" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="p-0 h-auto">
                         <MessageCircle className="h-6 w-6" />
                       </Button>
                       <Button variant="ghost" size="sm" className="p-0 h-auto" onClick={() => handleShare(post.id)}>
@@ -711,12 +736,13 @@ export default function PhotographerProfile() {
                     </Button>
                   </div>
 
-                  {/* Comments and Engagement */}
+                  {/* Likes and Comments */}
                   <div className="space-y-1 mb-2">
+                    {post.likes !== undefined && <p className="font-semibold text-sm">{post.likes.toLocaleString()} likes</p>}
                     <p className="text-sm">
-                      <span className="font-semibold">sarah_parker_photo</span> {post.description}
+                      <span className="font-semibold">{photographer.username}</span> {post.description}
                     </p>
-                    {post.comments > 0 && (
+                    {post.comments && post.comments > 0 && (
                       <button className="text-sm text-gray-600">View all {post.comments} comments</button>
                     )}
                   </div>
@@ -724,11 +750,7 @@ export default function PhotographerProfile() {
                   {/* Date */}
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-gray-600 uppercase">
-                      {new Date(post.date).toLocaleDateString("en-US", {
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      {post.project_date}
                     </p>
                     <Button size="sm" className="bg-green-600 hover:bg-green-700 text-xs" onClick={handleContact}>
                       <Phone className="h-3 w-3 mr-1" />

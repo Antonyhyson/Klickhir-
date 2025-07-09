@@ -1,7 +1,7 @@
 // antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/client/dashboard/page.tsx
 "use client"
 
-import { useState, useEffect } from "react" // Import useEffect
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,14 +9,12 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Star, MapPin, Clock, DollarSign, Search, Filter, Camera, CheckCircle, Users, Briefcase } from "lucide-react"
+import { Star, MapPin, Clock, DollarSign, Search, Filter, Camera, CheckCircle, Users, Briefcase, Loader2 } from "lucide-react" // Added Loader2
 import { SandFlow } from "@/components/sand-flow"
 
-// Remove mock photographers data since we'll fetch it
-// const photographers = [...]
-
+// interface for data from /api/photographers
 interface Photographer {
-  id: string; // Changed to string to match UUID from DB
+  id: string;
   name: string;
   rating: number;
   reviews: number;
@@ -25,23 +23,63 @@ interface Photographer {
   specialties: string[];
   hourlyRate: number;
   currency: string;
-  availability: string; // Maps to availability_status
-  avatar: string; // Maps to profile_image_url
+  availability: string;
+  avatar: string;
   featured: boolean;
-  verified: boolean; // Not directly from DB yet, keep for mock compatibility
-  connections: number; // Not directly from DB yet, keep for mock compatibility
-  projects: number; // Not directly from DB yet, keep for mock compatibility
-  posts: number; // Not directly from DB yet, keep for mock compatibility
+  verified: boolean;
+  connections: number;
+  projects: number;
+  posts: number;
 }
+
+// interface for current user profile from /api/users/me
+interface CurrentUserProfile {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    profile_image_url?: string;
+    // Add other fields relevant to client profile if needed
+}
+
 
 export default function ClientDashboard() {
   const [searchTerm, setSearchTerm] = useState("")
   const [sortBy, setSortBy] = useState("rating")
   const [filterBy, setFilterBy] = useState("all")
-  const [photographers, setPhotographers] = useState<Photographer[]>([]) // State to store fetched photographers
-  const [loading, setLoading] = useState(true) // Loading state
-  const [error, setError] = useState<string | null>(null) // Error state
+  const [photographers, setPhotographers] = useState<Photographer[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
+  const [currentUserProfile, setCurrentUserProfile] = useState<CurrentUserProfile | null>(null); // New state for current user
+  const [loadingUserProfile, setLoadingUserProfile] = useState(true);
+  const [errorUserProfile, setErrorUserProfile] = useState<string | null>(null);
+
+
+  // Fetch current user's profile for the header avatar
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      setLoadingUserProfile(true);
+      setErrorUserProfile(null);
+      try {
+        const response = await fetch("/api/users/me");
+        if (!response.ok) {
+          throw new Error(`Failed to fetch user profile: ${response.status}`);
+        }
+        const data = await response.json();
+        setCurrentUserProfile(data.user);
+      } catch (e: any) {
+        console.error("Error fetching user profile:", e);
+        setErrorUserProfile("Failed to load user profile for header.");
+      } finally {
+        setLoadingUserProfile(false);
+      }
+    };
+    fetchUserProfile();
+  }, []); // Run once on mount
+
+
+  // Fetch photographers data
   useEffect(() => {
     const fetchPhotographers = async () => {
       setLoading(true)
@@ -58,25 +96,24 @@ export default function ClientDashboard() {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
         const data = await response.json()
-        // Map fetched data to match existing Photographer interface,
-        // especially for name, specialties, hourlyRate, avatar, availability, etc.
+
         const mappedPhotographers: Photographer[] = data.photographers.map((p: any) => ({
           id: p.id,
           name: `${p.first_name} ${p.last_name}`,
-          rating: p.rating || 0, // Default to 0 if null
-          reviews: p.total_reviews || 0, // Default to 0 if null
-          location: p.location_country, // Using location_country, might need more detailed location from profile if available
-          distance: p.distance || "N/A", // Mocked distance from API route currently
+          rating: p.rating || 0,
+          reviews: p.total_reviews || 0,
+          location: p.location_country,
+          distance: p.distance || "N/A",
           specialties: p.specialties || [],
           hourlyRate: p.hourly_rate || 0,
           currency: p.currency || "USD",
           availability: p.availability_status || "available",
           avatar: p.profile_image_url || "/placeholder.svg?height=60&width=60",
-          featured: p.featured || false, // Mocked in API route currently
-          verified: p.is_verified || false, // is_verified on users table
-          connections: p.connections || Math.floor(Math.random() * 2000), // Mocked for now
-          projects: p.projects || Math.floor(Math.random() * 100), // Mocked for now
-          posts: p.posts || Math.floor(Math.random() * 200), // Mocked for now
+          featured: p.featured || false,
+          verified: p.is_verified || false,
+          connections: p.connections || Math.floor(Math.random() * 2000),
+          projects: p.projects || Math.floor(Math.random() * 100),
+          posts: p.posts || Math.floor(Math.random() * 200),
         }));
         setPhotographers(mappedPhotographers)
       } catch (e: any) {
@@ -88,7 +125,7 @@ export default function ClientDashboard() {
     }
 
     fetchPhotographers()
-  }, [searchTerm, sortBy, filterBy]) // Re-fetch when these dependencies change
+  }, [searchTerm, sortBy, filterBy])
 
   const featuredPhotographers = photographers.filter((p) => p.featured);
   const allOtherPhotographers = photographers.filter((p) => !p.featured);
@@ -120,11 +157,20 @@ export default function ClientDashboard() {
                 <Link href="/client/post-job">
                   <Button className="refined-button-secondary font-light">Post a Job</Button>
                 </Link>
+                <Link href="/client/jobs"> {/* Link to client job management page */}
+                    <Button className="refined-button-secondary font-light">My Jobs</Button>
+                </Link>
                 <div className="relative">
                   <Avatar className="ring-1 ring-slate-300 dark:ring-slate-600">
-                    <AvatarImage src="/placeholder.svg?height=32&width=32" />
+                    {loadingUserProfile ? (
+                      <Loader2 className="h-full w-full animate-spin text-gray-400" />
+                    ) : errorUserProfile ? (
+                      <User className="h-full w-full text-red-500" />
+                    ) : (
+                      <AvatarImage src={currentUserProfile?.profile_image_url || "/placeholder.svg?height=32&width=32"} />
+                    )}
                     <AvatarFallback className="bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 dark:from-slate-700 dark:to-slate-800 dark:text-slate-300">
-                      JD
+                      {currentUserProfile ? `${currentUserProfile.first_name[0]}${currentUserProfile.last_name[0]}` : 'JD'}
                     </AvatarFallback>
                   </Avatar>
                   <div className="verification-dot absolute -top-1 -right-1"></div>

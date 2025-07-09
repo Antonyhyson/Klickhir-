@@ -2,11 +2,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { cookies } from "next/headers"
-import { verifyToken } from "@/lib/auth" // Import verifyToken from lib/auth
+import { verifyToken } from "@/lib/auth"
 
-// Remove the duplicated verifySimpleToken function from here
-
-// Abuse detection system - remains the same, but note on E2E vs. moderation
+// Abuse detection system
 class AbuseDetector {
   private static profanityList = [
     "damn",
@@ -66,8 +64,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Use the centralized verifyToken function
-    const decoded = verifyToken(token) //
+    const decoded = verifyToken(token)
     if (!decoded) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
@@ -153,8 +150,19 @@ export async function POST(request: NextRequest) {
     const [message] = await sql`
       INSERT INTO messages (sender_id, recipient_id, message, is_read)
       VALUES (${decoded.userId}, ${recipientId}, ${encryptedContent}, false)
-      RETURNING *
+      RETURNING id, sender_id, recipient_id, created_at;
     `
+
+    // --- NEW: Create notification for the message recipient ---
+    const [senderUser] = await sql`SELECT first_name, last_name FROM users WHERE id = ${decoded.userId}`;
+    if (senderUser) {
+      const notificationMessage = `You have a new message from ${senderUser.first_name} ${senderUser.last_name}.`;
+      await sql`
+        INSERT INTO notifications (user_id, type, entity_id, message, is_read)
+        VALUES (${recipientId}, 'new_message', ${message.id}, ${notificationMessage}, FALSE);
+      `;
+    }
+    // --- END NEW ---
 
     return NextResponse.json({
       message: "Message sent successfully",
