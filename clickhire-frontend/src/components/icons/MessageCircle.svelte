@@ -1,0 +1,2 @@
+<script lang="ts">export let className: string = 'w-5 h-5';</script>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={className}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L2 22l1.7-4.1C2.7 14.8 2 13.1 2 11.5 2 7.02 6.47 3 12 3s10 4.02 10 8.5z"/></svg>
