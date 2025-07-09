@@ -1,4 +1,7 @@
+// app/api/auth/register/route.ts
 import { type NextRequest, NextResponse } from "next/server"
+import { sql } from "@/lib/db"
+import bcrypt from "bcryptjs" // Import bcryptjs
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,19 +28,78 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid user type" }, { status: 400 })
     }
 
-    // For demo purposes, just return success
-    // In a real app, this would create the user in the database
-    const userId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    // Check if user already exists
+    const [existingUser] = await sql`
+      SELECT id FROM users WHERE email = ${email}
+    `
+    if (existingUser) {
+      return NextResponse.json({ error: "User with this email already exists" }, { status: 409 })
+    }
+
+    // Hash the password
+    const saltRounds = 12 // Cost factor for hashing. Higher is slower but more secure.
+    const passwordHash = await bcrypt.hash(password, saltRounds)
+
+    // Determine currency based on location (mocked for now, in real app would use a lookup table)
+    let currency = "USD"
+    if (location === "GB") currency = "GBP"
+    if (location === "CA") currency = "CAD"
+    // Add more currency mappings as needed based on your `countries` array in register/page.tsx
+
+    // Handle MFA secret based on method (for authenticator, a secret would be generated here)
+    let mfaSecret: string | null = null
+    if (mfaMethod === "authenticator") {
+      // In a real application, you would generate a TOTP secret here
+      // For now, we'll store a placeholder or leave it null if not setting up immediately.
+      // Example: mfaSecret = authenticator.generateSecret();
+      // For this demo, let's just store a simple string or null if not used directly for authenticator setup yet.
+      mfaSecret = "TEMP_MFA_SECRET_PLACEHOLDER" // This should be a properly generated secret
+    }
+
+
+    // Insert user into the database
+    const [newUser] = await sql`
+      INSERT INTO users (
+        email, password_hash, first_name, last_name, phone, user_type, 
+        location_country, currency, mfa_method, mfa_secret, is_verified
+      ) VALUES (
+        ${email}, ${passwordHash}, ${firstName}, ${lastName}, ${phone}, ${userType}, 
+        ${location}, ${currency}, ${mfaMethod}, ${mfaSecret}, false
+      ) RETURNING id, email, first_name, last_name, user_type, location_country
+    `
+
+    // Insert into specific profile table
+    if (userType === "photographer") {
+      // Ensure cameraKit is an array of strings, even if empty
+      const photographerCameraKit = Array.isArray(cameraKit) ? cameraKit : []
+      await sql`
+        INSERT INTO photographer_profiles (
+          user_id, specialties, camera_equipment
+        ) VALUES (
+          ${newUser.id}, ARRAY[]::TEXT[], ${photographerCameraKit}
+        )
+      `
+    } else {
+      // Client profile
+      await sql`
+        INSERT INTO client_profiles (
+          user_id
+        ) VALUES (
+          ${newUser.id}
+        )
+      `
+    }
 
     return NextResponse.json(
       {
         message: "User created successfully",
         user: {
-          id: userId,
-          email,
-          firstName,
-          lastName,
-          userType,
+          id: newUser.id,
+          email: newUser.email,
+          firstName: newUser.first_name,
+          lastName: newUser.last_name,
+          userType: newUser.user_type,
+          locationCountry: newUser.location_country,
         },
       },
       { status: 201 },
