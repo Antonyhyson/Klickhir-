@@ -1,6 +1,7 @@
+// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/photographer/portfolio/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react" // Import useEffect
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -9,81 +10,128 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Star, MapPin, Camera, Heart, MessageCircle, Share, Bookmark, MoreHorizontal } from "lucide-react"
 import { GlitterBackground } from "@/components/glitter-background"
 
-// Mock portfolio data
-const portfolioData = {
-  photographer: {
-    id: "photographer-1",
-    name: "Sarah Parker",
-    username: "sarah_parker_photo",
-    bio: "✨ Capturing love stories & authentic moments\n📧 sarah@sarahparkerphoto.com\n🎯 Wedding & Portrait Photographer",
-    location: "New York, NY",
-    rating: 4.9,
-    reviews: 127,
-    followers: 2400,
-    following: 892,
-    posts: 127,
-    avatar: "/placeholder.svg?height=128&width=128",
-    specialties: ["Wedding", "Portrait", "Event"],
-    hourlyRate: 150,
-    currency: "USD",
-  },
-  posts: [
-    {
-      id: 1,
-      projectName: "Sarah & Mike's Wedding",
-      description:
-        "Beautiful outdoor ceremony at Central Park with golden hour portraits. The love between these two was absolutely magical to capture! ✨ #WeddingPhotography #CentralPark #GoldenHour",
-      location: "Central Park, NY",
-      date: "2024-11-15",
-      images: [
-        "/placeholder.svg?height=400&width=400",
-        "/placeholder.svg?height=400&width=400",
-        "/placeholder.svg?height=400&width=400",
-      ],
-      likes: 234,
-      comments: 18,
-      shares: 12,
-    },
-    {
-      id: 2,
-      projectName: "Corporate Headshots - TechCorp",
-      description:
-        "Professional headshots for the amazing team at TechCorp! Each person brought their unique personality to the shoot 💼 #CorporatePhotography #Headshots #Professional",
-      location: "Manhattan, NY",
-      date: "2024-11-10",
-      images: ["/placeholder.svg?height=400&width=400"],
-      likes: 89,
-      comments: 7,
-      shares: 5,
-    },
-    {
-      id: 3,
-      projectName: "Fashion Editorial Shoot",
-      description:
-        "Urban fashion photography in the heart of Brooklyn. The contrast between industrial architecture and flowing fabrics created pure magic 🏙️ #FashionPhotography #Brooklyn #Editorial",
-      location: "Brooklyn, NY",
-      date: "2024-11-05",
-      images: [
-        "/placeholder.svg?height=400&width=400",
-        "/placeholder.svg?height=400&width=400",
-        "/placeholder.svg?height=400&width=400",
-        "/placeholder.svg?height=400&width=400",
-      ],
-      likes: 456,
-      comments: 32,
-      shares: 28,
-    },
-  ],
+// Define interfaces for fetched data
+interface PhotographerProfile {
+  id: string;
+  name: string;
+  username: string; // Derived from first_name, last_name
+  bio: string;
+  location: string; // Maps to location_country
+  rating: number;
+  reviews: number; // Maps to total_reviews
+  followers: number; // Placeholder/mocked for now
+  following: number; // Placeholder/mocked for now
+  posts: number; // Actual count from DB
+  avatar: string; // Maps to profile_image_url
+  specialties: string[];
+  hourlyRate: number; // Maps to hourly_rate
+  currency: string;
+  is_verified: boolean; // From users table
 }
+
+interface PortfolioPost {
+  id: string; // Changed to string to match UUID
+  project_name: string;
+  description: string;
+  location: string;
+  project_date: string; // Maps to project_date
+  images: string[];
+  likes?: number; // Not directly in DB, keep for mock compatibility or add a likes table
+  comments?: number; // Not directly in DB, keep for mock compatibility or add a comments table
+  shares?: number; // Not directly in DB, keep for mock compatibility
+}
+
 
 export default function PhotographerPortfolio() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
-  const { photographer, posts } = portfolioData
+  const [photographer, setPhotographer] = useState<PhotographerProfile | null>(null)
+  const [posts, setPosts] = useState<PortfolioPost[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleShare = (postId: number) => {
-    navigator.clipboard.writeText(`${window.location.origin}/photographer/portfolio?post=${postId}`)
-    alert("Link copied to clipboard!")
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        // Fetch photographer profile
+        const profileResponse = await fetch("/api/users/me")
+        if (!profileResponse.ok) {
+          throw new Error(`Failed to fetch profile: ${profileResponse.statusText}`)
+        }
+        const profileData = await profileResponse.json()
+        setPhotographer(profileData.user)
+
+        // Fetch portfolio posts for the authenticated photographer
+        const postsResponse = await fetch("/api/portfolio") // No photographerId needed, token identifies
+        if (!postsResponse.ok) {
+          throw new Error(`Failed to fetch posts: ${postsResponse.statusText}`)
+        }
+        const postsData = await postsResponse.json()
+
+        // Map posts data to match interface and add mock engagement if not in DB
+        const mappedPosts: PortfolioPost[] = postsData.posts.map((post: any) => ({
+          id: post.id,
+          project_name: post.project_name,
+          description: post.description,
+          location: post.location,
+          project_date: new Date(post.project_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+          images: post.images,
+          likes: Math.floor(Math.random() * 1000) + 50, // Mock likes
+          comments: Math.floor(Math.random() * 50) + 5,  // Mock comments
+          shares: Math.floor(Math.random() * 30) + 2,   // Mock shares
+        }));
+        setPosts(mappedPosts)
+
+      } catch (err: any) {
+        console.error("Error fetching portfolio data:", err)
+        setError("Failed to load portfolio. Please ensure you are logged in as a photographer.")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, []) // Empty dependency array means this runs once on mount
+
+
+  const handleShare = (postId: string) => { // postId is now string
+    if (photographer) {
+      navigator.clipboard.writeText(`${window.location.origin}/photographer/portfolio/${photographer.id}?post=${postId}`)
+      alert("Link copied to clipboard!")
+    } else {
+      alert("Photographer profile not loaded yet. Cannot share.")
+    }
   }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen relative flex items-center justify-center">
+        <GlitterBackground />
+        <p className="relative z-10 text-xl text-gray-700 dark:text-gray-300">Loading portfolio...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen relative flex items-center justify-center">
+        <GlitterBackground />
+        <p className="relative z-10 text-xl text-red-500">{error}</p>
+      </div>
+    )
+  }
+
+  if (!photographer) {
+    return (
+      <div className="min-h-screen relative flex items-center justify-center">
+        <GlitterBackground />
+        <p className="relative z-10 text-xl text-gray-700 dark:text-gray-300">No photographer profile found.</p>
+      </div>
+    )
+  }
+
 
   return (
     <div className="min-h-screen relative">
@@ -118,7 +166,12 @@ export default function PhotographerPortfolio() {
             <div className="flex items-start space-x-6">
               <Avatar className="h-32 w-32">
                 <AvatarImage src={photographer.avatar || "/placeholder.svg"} />
-                <AvatarFallback>SP</AvatarFallback>
+                <AvatarFallback>
+                  {photographer.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
+                </AvatarFallback>
               </Avatar>
 
               <div className="flex-1">
@@ -132,7 +185,7 @@ export default function PhotographerPortfolio() {
                       <Button className="bg-green-600 hover:bg-green-700">Share New Work</Button>
                     </Link>
                     <Link href="/photographer/profile">
-                      <Button variant="outline">Edit Profile</Button>
+                      <Button variant="outline">Edit Profile</Button> {/* Link to own profile edit page */}
                     </Link>
                   </div>
                 </div>
@@ -155,10 +208,10 @@ export default function PhotographerPortfolio() {
 
                 {/* Bio and Stats */}
                 <div className="space-y-2">
-                  <p className="font-semibold">Wedding & Portrait Photographer</p>
+                  <p className="font-semibold">Wedding & Portrait Photographer</p> {/* This should ideally come from specialties */}
                   <p className="text-gray-700">📍 {photographer.location}</p>
-                  <p className="text-gray-700">✨ Capturing love stories & authentic moments</p>
-                  <p className="text-gray-700">📧 sarah@sarahparkerphoto.com</p>
+                  <p className="text-gray-700">✨ {photographer.bio}</p> {/* Use fetched bio */}
+                  <p className="text-gray-700">📧 {photographer.email}</p> {/* Display email from fetched data */}
                   <div className="flex items-center space-x-4">
                     <div className="flex items-center space-x-1 text-sm">
                       <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
@@ -185,6 +238,9 @@ export default function PhotographerPortfolio() {
 
           {/* Instagram-style Feed */}
           <div className="space-y-8">
+            {posts.length === 0 && !loading && (
+              <p className="text-center text-gray-500">No portfolio posts found yet.</p>
+            )}
             {posts.map((post) => (
               <Card key={post.id} className="bg-white/95 backdrop-blur-sm overflow-hidden">
                 {/* Post Header */}
@@ -192,7 +248,12 @@ export default function PhotographerPortfolio() {
                   <div className="flex items-center space-x-3">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={photographer.avatar || "/placeholder.svg"} />
-                      <AvatarFallback>SP</AvatarFallback>
+                      <AvatarFallback>
+                        {photographer.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </AvatarFallback>
                     </Avatar>
                     <div>
                       <p className="font-semibold text-sm">{photographer.username}</p>
@@ -212,7 +273,7 @@ export default function PhotographerPortfolio() {
                   {post.images.length === 1 ? (
                     <img
                       src={post.images[0] || "/placeholder.svg"}
-                      alt={post.projectName}
+                      alt={post.project_name}
                       className="w-full h-96 object-cover cursor-pointer"
                       onClick={() => setSelectedImage(post.images[0])}
                     />
@@ -230,95 +291,9 @@ export default function PhotographerPortfolio() {
                         <div key={index} className="relative">
                           <img
                             src={image || "/placeholder.svg"}
-                            alt={`${post.projectName} - Image ${index + 1}`}
+                            alt={`${post.project_name} - Image ${index + 1}`}
                             className={`w-full object-cover cursor-pointer ${
                               post.images.length === 2
                                 ? "h-96"
                                 : post.images.length === 3
-                                  ? "h-64"
-                                  : index === 0
-                                    ? "h-96 row-span-2"
-                                    : "h-48"
-                            }`}
-                            onClick={() => setSelectedImage(image)}
-                          />
-                          {index === 3 && post.images.length > 4 && (
-                            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                              <span className="text-white text-xl font-bold">+{post.images.length - 4}</span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Post Actions */}
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-4">
-                      <Button variant="ghost" size="sm" className="p-0 h-auto">
-                        <Heart className="h-6 w-6" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="p-0 h-auto">
-                        <MessageCircle className="h-6 w-6" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="p-0 h-auto" onClick={() => handleShare(post.id)}>
-                        <Share className="h-6 w-6" />
-                      </Button>
-                    </div>
-                    <Button variant="ghost" size="sm" className="p-0 h-auto">
-                      <Bookmark className="h-6 w-6" />
-                    </Button>
-                  </div>
-
-                  {/* Likes and Comments */}
-                  <div className="space-y-1 mb-2">
-                    <p className="font-semibold text-sm">{post.likes.toLocaleString()} likes</p>
-                    <p className="text-sm">
-                      <span className="font-semibold">{photographer.username}</span> {post.description}
-                    </p>
-                    {post.comments > 0 && (
-                      <button className="text-sm text-gray-600">View all {post.comments} comments</button>
-                    )}
-                  </div>
-
-                  {/* Date */}
-                  <p className="text-xs text-gray-600 uppercase">
-                    {new Date(post.date).toLocaleDateString("en-US", {
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </p>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Image Modal */}
-        {selectedImage && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4"
-            onClick={() => setSelectedImage(null)}
-          >
-            <img
-              src={selectedImage || "/placeholder.svg"}
-              alt="Full size"
-              className="max-w-full max-h-full object-contain"
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute top-4 right-4 text-white hover:bg-white/20"
-              onClick={() => setSelectedImage(null)}
-            >
-              ✕
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
+                                  ?

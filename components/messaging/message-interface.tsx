@@ -1,6 +1,7 @@
+// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/components/messaging/message-interface.tsx
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react" // Import useCallback
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -111,7 +112,7 @@ interface Message {
   senderId: string
   recipientId: string
   encryptedContent: string
-  timestamp: Date
+  timestamp: Date // Changed to Date object for consistent use
   isRead: boolean
 }
 
@@ -132,7 +133,7 @@ interface MessageInterfaceProps {
   currentUserName: string
   currentUserType: "client" | "photographer"
   conversations: Conversation[]
-  onSendMessage: (conversationId: string, encryptedMessage: string) => void
+  onSendMessage: (conversationId: string, encryptedMessage: string, originalMessage: string) => void // Added originalMessage
   onReportAbuse: (conversationId: string, messageId: string, reason: string) => void
 }
 
@@ -147,40 +148,59 @@ export function MessageInterface({
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState("")
-  const [isEncrypted, setIsEncrypted] = useState(true)
+  // const [isEncrypted, setIsEncrypted] = useState(true) // This state is not used
   const [abuseWarning, setAbuseWarning] = useState<string | null>(null)
+  const [loadingMessages, setLoadingMessages] = useState(false) // New loading state for messages
+  const [messagesError, setMessagesError] = useState<string | null>(null) // New error state for messages
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Mock messages for demo
+  // Fetch messages when selectedConversation changes
   useEffect(() => {
     if (selectedConversation) {
-      const mockMessages: Message[] = [
-        {
-          id: "1",
-          senderId: selectedConversation.participants[0].id,
-          recipientId: currentUserId,
-          encryptedContent: "SGVsbG8hIEkgc2F3IHlvdXIgcG9ydGZvbGlvIGFuZCBsb3ZlZCB5b3VyIHdvcmsh",
-          timestamp: new Date(Date.now() - 3600000),
-          isRead: true,
-        },
-        {
-          id: "2",
-          senderId: currentUserId,
-          recipientId: selectedConversation.participants[0].id,
-          encryptedContent: "VGhhbmsgeW91ISBJJ2QgbG92ZSB0byBkaXNjdXNzIHlvdXIgcHJvamVjdC4=",
-          timestamp: new Date(Date.now() - 1800000),
-          isRead: true,
-        },
-      ]
-      setMessages(mockMessages)
-    }
-  }, [selectedConversation, currentUserId])
+      const fetchMessages = async () => {
+        setLoadingMessages(true);
+        setMessagesError(null);
+        try {
+          const otherParticipant = getOtherParticipant(selectedConversation);
+          if (!otherParticipant) {
+            setMessagesError("Could not find other participant in conversation.");
+            return;
+          }
 
+          const response = await fetch(`/api/messaging/messages?contactId=${otherParticipant.id}`);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch messages: ${response.status}`);
+          }
+          const data = await response.json();
+          const fetchedMessages: Message[] = data.messages.map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp) // Convert timestamp string to Date object
+          }));
+          setMessages(fetchedMessages);
+        } catch (err: any) {
+          console.error("Error fetching messages:", err);
+          setMessagesError("Failed to load messages for this conversation.");
+        } finally {
+          setLoadingMessages(false);
+        }
+      };
+      fetchMessages();
+    } else {
+      setMessages([]); // Clear messages if no conversation is selected
+    }
+  }, [selectedConversation, currentUserId]) // Depend on selectedConversation and currentUserId
+
+  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  const handleSendMessage = async () => {
+
+  const getOtherParticipant = useCallback((conversation: Conversation) => {
+    return conversation.participants.find((p) => p.id !== currentUserId)
+  }, [currentUserId]); // Memoize this function to prevent unnecessary re-renders
+
+  const handleSendMessageClick = async () => { // Renamed to avoid conflict with prop
     if (!newMessage.trim() || !selectedConversation) return
 
     // Check for abuse
@@ -190,9 +210,6 @@ export function MessageInterface({
         `Warning: Your message contains inappropriate language (${abuseCheck.words.join(", ")}). ` +
           `Repeated violations will result in account suspension.`,
       )
-
-      // In a real app, this would increment the user's violation count
-      // and potentially ban them if they exceed the threshold
       setTimeout(() => setAbuseWarning(null), 5000)
       return
     }
@@ -202,35 +219,38 @@ export function MessageInterface({
       const encryptedMessage = await E2EEncryption.encryptMessage(newMessage, selectedConversation.encryptionKey)
 
       const message: Message = {
-        id: Date.now().toString(),
+        id: Date.now().toString(), // Client-side ID for optimistic update
         senderId: currentUserId,
-        recipientId: selectedConversation.participants.find((p) => p.id !== currentUserId)?.id || "",
+        recipientId: getOtherParticipant(selectedConversation)?.id || "",
         encryptedContent: encryptedMessage,
         timestamp: new Date(),
-        isRead: false,
+        isRead: false, // Newly sent messages are unread by recipient
       }
 
+      // Optimistic update: Add message to UI immediately
       setMessages((prev) => [...prev, message])
-      onSendMessage(selectedConversation.id, encryptedMessage)
-      setNewMessage("")
+      setNewMessage("") // Clear input field
+
+      // Call parent onSendMessage handler (which will call the API)
+      onSendMessage(selectedConversation.id, encryptedMessage, newMessage) // Pass original message for server moderation
     } catch (error) {
-      console.error("Failed to encrypt message:", error)
+      console.error("Failed to encrypt or send message:", error)
+      setAbuseWarning("Failed to send message. Please try again.") // Use abuseWarning state for general errors
+      setTimeout(() => setAbuseWarning(null), 5000)
     }
   }
 
-  const decryptMessage = async (encryptedContent: string): Promise<string> => {
+  const decryptMessage = useCallback(async (encryptedContent: string): Promise<string> => {
     if (!selectedConversation) return "Failed to decrypt"
 
     try {
       return await E2EEncryption.decryptMessage(encryptedContent, selectedConversation.encryptionKey)
     } catch (error) {
+      console.error("Decryption failed:", error);
       return "Failed to decrypt message"
     }
-  }
+  }, [selectedConversation]); // Depend on selectedConversation to ensure key is current
 
-  const getOtherParticipant = (conversation: Conversation) => {
-    return conversation.participants.find((p) => p.id !== currentUserId)
-  }
 
   return (
     <div className="flex h-[600px] bg-white/95 backdrop-blur-sm rounded-lg overflow-hidden">
@@ -342,7 +362,12 @@ export function MessageInterface({
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((message) => {
+              {loadingMessages && <p className="text-center text-gray-500">Loading messages...</p>}
+              {messagesError && <p className="text-center text-red-500">{messagesError}</p>}
+              {!loadingMessages && !messagesError && messages.length === 0 && (
+                <p className="text-center text-gray-500">No messages in this conversation yet. Start typing!</p>
+              )}
+              {!loadingMessages && !messagesError && messages.map((message) => {
                 const isOwnMessage = message.senderId === currentUserId
                 return (
                   <div key={message.id} className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}>
@@ -372,10 +397,11 @@ export function MessageInterface({
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder="Type your message..."
-                  onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                  onKeyPress={(e) => e.key === "Enter" && handleSendMessageClick()}
                   className="flex-1"
+                  disabled={loadingMessages}
                 />
-                <Button onClick={handleSendMessage} size="sm">
+                <Button onClick={handleSendMessageClick} size="sm" disabled={loadingMessages}>
                   <Send className="h-4 w-4" />
                 </Button>
               </div>

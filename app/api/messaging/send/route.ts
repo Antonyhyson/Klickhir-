@@ -1,21 +1,12 @@
+// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/api/messaging/send/route.ts
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { cookies } from "next/headers"
+import { verifyToken } from "@/lib/auth" // Import verifyToken from lib/auth
 
-function verifySimpleToken(token: string): any {
-  try {
-    const decoded = JSON.parse(Buffer.from(token, "base64").toString())
-    const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000
-    if (Date.now() - decoded.timestamp > sevenDaysInMs) {
-      return null
-    }
-    return decoded
-  } catch (error) {
-    return null
-  }
-}
+// Remove the duplicated verifySimpleToken function from here
 
-// Abuse detection system
+// Abuse detection system - remains the same, but note on E2E vs. moderation
 class AbuseDetector {
   private static profanityList = [
     "damn",
@@ -75,19 +66,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const decoded = verifySimpleToken(token)
+    // Use the centralized verifyToken function
+    const decoded = verifyToken(token) //
     if (!decoded) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
 
     const body = await request.json()
-    const { recipientId, encryptedMessage, originalMessage } = body
+    const { recipientId, encryptedContent, originalMessage } = body
 
     // Check if user is currently banned
     const [banCheck] = await sql`
-      SELECT ban_until, violation_count 
-      FROM user_violations 
-      WHERE user_id = ${decoded.userId} 
+      SELECT ban_until, violation_count
+      FROM user_violations
+      WHERE user_id = ${decoded.userId}
       AND ban_until > NOW()
     `
 
@@ -101,7 +93,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Decrypt and check for abuse (in real app, this would be done client-side before encryption)
+    // Abuse detection (on originalMessage for moderation purposes)
     if (originalMessage) {
       const abuseCheck = AbuseDetector.detectProfanity(originalMessage)
 
@@ -120,8 +112,8 @@ export async function POST(request: NextRequest) {
           await sql`
             INSERT INTO user_violations (user_id, violation_count, ban_until, last_violation)
             VALUES (${decoded.userId}, ${newViolationCount}, ${banUntil}, NOW())
-            ON CONFLICT (user_id) 
-            DO UPDATE SET 
+            ON CONFLICT (user_id)
+            DO UPDATE SET
               violation_count = ${newViolationCount},
               ban_until = ${banUntil},
               last_violation = NOW()
@@ -140,8 +132,8 @@ export async function POST(request: NextRequest) {
           await sql`
             INSERT INTO user_violations (user_id, violation_count, last_violation)
             VALUES (${decoded.userId}, ${newViolationCount}, NOW())
-            ON CONFLICT (user_id) 
-            DO UPDATE SET 
+            ON CONFLICT (user_id)
+            DO UPDATE SET
               violation_count = ${newViolationCount},
               last_violation = NOW()
           `
@@ -160,7 +152,7 @@ export async function POST(request: NextRequest) {
     // Save encrypted message
     const [message] = await sql`
       INSERT INTO messages (sender_id, recipient_id, message, is_read)
-      VALUES (${decoded.userId}, ${recipientId}, ${encryptedMessage}, false)
+      VALUES (${decoded.userId}, ${recipientId}, ${encryptedContent}, false)
       RETURNING *
     `
 

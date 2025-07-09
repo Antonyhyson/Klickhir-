@@ -1,7 +1,8 @@
 // app/api/auth/register/route.ts
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
-import bcrypt from "bcryptjs" // Import bcryptjs
+import bcrypt from "bcryptjs"
+import speakeasy from "speakeasy" // Import speakeasy
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,40 +38,48 @@ export async function POST(request: NextRequest) {
     }
 
     // Hash the password
-    const saltRounds = 12 // Cost factor for hashing. Higher is slower but more secure.
+    const saltRounds = 12
     const passwordHash = await bcrypt.hash(password, saltRounds)
 
     // Determine currency based on location (mocked for now, in real app would use a lookup table)
     let currency = "USD"
+    // (Existing currency mapping logic)
     if (location === "GB") currency = "GBP"
     if (location === "CA") currency = "CAD"
-    // Add more currency mappings as needed based on your `countries` array in register/page.tsx
 
-    // Handle MFA secret based on method (for authenticator, a secret would be generated here)
+
+    // --- MFA Secret Generation ---
     let mfaSecret: string | null = null
+    let otpauthUrl: string | null = null
+
     if (mfaMethod === "authenticator") {
-      // In a real application, you would generate a TOTP secret here
-      // For now, we'll store a placeholder or leave it null if not setting up immediately.
-      // Example: mfaSecret = authenticator.generateSecret();
-      // For this demo, let's just store a simple string or null if not used directly for authenticator setup yet.
-      mfaSecret = "TEMP_MFA_SECRET_PLACEHOLDER" // This should be a properly generated secret
+      const secret = speakeasy.generateSecret({
+        length: 20, // Length of the secret key
+        name: `ClickHire (${email})`, // Issuer name
+        // For production, you might want to specify an algorithm like 'sha512'
+        // But most authenticator apps default to SHA1 for TOTP
+      })
+      mfaSecret = secret.base32 // Store the base32 encoded secret
+      otpauthUrl = secret.otpauth_url || null // URL for QR code generation
+      console.log(`Generated MFA Secret for ${email}: ${mfaSecret}`)
+      console.log(`OTP Auth URL: ${otpauthUrl}`)
     }
+    // ----------------------------
 
 
     // Insert user into the database
     const [newUser] = await sql`
       INSERT INTO users (
-        email, password_hash, first_name, last_name, phone, user_type, 
+        email, password_hash, first_name, last_name, phone, user_type,
         location_country, currency, mfa_method, mfa_secret, is_verified
       ) VALUES (
-        ${email}, ${passwordHash}, ${firstName}, ${lastName}, ${phone}, ${userType}, 
+        ${email}, ${passwordHash}, ${firstName}, ${lastName}, ${phone}, ${userType},
         ${location}, ${currency}, ${mfaMethod}, ${mfaSecret}, false
       ) RETURNING id, email, first_name, last_name, user_type, location_country
     `
 
     // Insert into specific profile table
     if (userType === "photographer") {
-      // Ensure cameraKit is an array of strings, even if empty
       const photographerCameraKit = Array.isArray(cameraKit) ? cameraKit : []
       await sql`
         INSERT INTO photographer_profiles (
@@ -80,7 +89,6 @@ export async function POST(request: NextRequest) {
         )
       `
     } else {
-      // Client profile
       await sql`
         INSERT INTO client_profiles (
           user_id
@@ -101,6 +109,8 @@ export async function POST(request: NextRequest) {
           userType: newUser.user_type,
           locationCountry: newUser.location_country,
         },
+        // Include MFA setup details if applicable for frontend to display QR
+        mfa: mfaMethod === "authenticator" ? { secret: mfaSecret, otpauthUrl: otpauthUrl } : undefined,
       },
       { status: 201 },
     )

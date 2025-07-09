@@ -1,19 +1,9 @@
+// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/middleware.ts
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { verifyToken } from "@/lib/auth" // Import verifyToken from lib/auth
 
-function verifySimpleToken(token: string): any {
-  try {
-    const decoded = JSON.parse(Buffer.from(token, "base64").toString())
-    // Check if token is not older than 7 days
-    const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000
-    if (Date.now() - decoded.timestamp > sevenDaysInMs) {
-      return null
-    }
-    return decoded
-  } catch (error) {
-    return null
-  }
-}
+// Remove the duplicated verifySimpleToken function from here
 
 export function middleware(request: NextRequest) {
   // Check if the request is for a protected route
@@ -23,6 +13,8 @@ export function middleware(request: NextRequest) {
     "/client/post-job",
     "/photographer/post-work",
     "/photographer/profile",
+    "/messages", // Added messages route to protected
+    "/client/photographer/", // Protect individual photographer profiles for clients
   ]
   const isProtectedRoute = protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route))
 
@@ -30,27 +22,41 @@ export function middleware(request: NextRequest) {
     const token = request.cookies.get("auth-token")?.value
 
     if (!token) {
+      // Redirect to login page if no token
       return NextResponse.redirect(new URL("/login", request.url))
     }
 
-    const decoded = verifySimpleToken(token)
+    // Use the centralized verifyToken function
+    const decoded = verifyToken(token) //
     if (!decoded) {
+      // Redirect to login if token is invalid or expired
       return NextResponse.redirect(new URL("/login", request.url))
     }
 
     // Check user type for specific routes
-    if (request.nextUrl.pathname.startsWith("/client/") && decoded.userType !== "client") {
-      return NextResponse.redirect(new URL("/photographer/dashboard", request.url))
+    if (request.nextUrl.pathname.startsWith("/client/")) {
+        // Allow client to view any photographer profile
+        if (request.nextUrl.pathname.startsWith("/client/photographer/")) {
+            return NextResponse.next();
+        }
+        if (decoded.userType !== "client") {
+            return NextResponse.redirect(new URL("/photographer/dashboard", request.url));
+        }
     }
+
 
     if (request.nextUrl.pathname.startsWith("/photographer/") && decoded.userType !== "photographer") {
       return NextResponse.redirect(new URL("/client/dashboard", request.url))
     }
+
+    // Allow access if checks pass
+    return NextResponse.next()
   }
 
+  // Allow access for non-protected routes
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ["/client/:path*", "/photographer/:path*"],
+  matcher: ["/client/:path*", "/photographer/:path*", "/messages/:path*"],
 }

@@ -1,19 +1,10 @@
+// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/api/messaging/conversations/route.ts
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { cookies } from "next/headers"
+import { verifyToken } from "@/lib/auth" // Import verifyToken from lib/auth
 
-function verifySimpleToken(token: string): any {
-  try {
-    const decoded = JSON.parse(Buffer.from(token, "base64").toString())
-    const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000
-    if (Date.now() - decoded.timestamp > sevenDaysInMs) {
-      return null
-    }
-    return decoded
-  } catch (error) {
-    return null
-  }
-}
+// Remove the duplicated verifySimpleToken function from here
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +15,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const decoded = verifySimpleToken(token)
+    // Use the centralized verifyToken function
+    const decoded = verifyToken(token) //
     if (!decoded) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
@@ -32,7 +24,7 @@ export async function GET(request: NextRequest) {
     // Get conversations for the current user
     const conversations = await sql`
       SELECT DISTINCT
-        CASE 
+        CASE
           WHEN m.sender_id = ${decoded.userId} THEN m.recipient_id
           ELSE m.sender_id
         END as other_user_id,
@@ -42,7 +34,7 @@ export async function GET(request: NextRequest) {
         MAX(m.created_at) as last_message_time
       FROM messages m
       JOIN users u ON (
-        CASE 
+        CASE
           WHEN m.sender_id = ${decoded.userId} THEN m.recipient_id = u.id
           ELSE m.sender_id = u.id
         END
@@ -58,7 +50,7 @@ export async function GET(request: NextRequest) {
       participants: [
         {
           id: decoded.userId,
-          name: `${decoded.firstName} ${decoded.lastName}`,
+          name: `${decoded.firstName} ${decoded.lastName}`, // Use decoded token's user info
           userType: decoded.userType,
           avatar: "/placeholder.svg?height=40&width=40",
         },

@@ -1,19 +1,10 @@
+// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/api/jobs/route.ts
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { cookies } from "next/headers"
+import { verifyToken } from "@/lib/auth" // Import verifyToken from lib/auth
 
-function verifySimpleToken(token: string): any {
-  try {
-    const decoded = JSON.parse(Buffer.from(token, "base64").toString())
-    const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000
-    if (Date.now() - decoded.timestamp > sevenDaysInMs) {
-      return null
-    }
-    return decoded
-  } catch (error) {
-    return null
-  }
-}
+// Remove the duplicated verifySimpleToken function from here
 
 // GET /api/jobs - Get jobs (for photographers) or posted jobs (for clients)
 export async function GET(request: NextRequest) {
@@ -25,12 +16,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const decoded = verifySimpleToken(token)
+    // Use the centralized verifyToken function
+    const decoded = verifyToken(token) //
     if (!decoded) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
 
     const { searchParams } = new URL(request.url)
+    // Prioritize userType from token if not explicitly provided in search params
     const userType = searchParams.get("userType") || decoded.userType
     const status = searchParams.get("status") || "open"
     const isCollaboration = searchParams.get("collaboration") === "true"
@@ -78,7 +71,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const decoded = verifySimpleToken(token)
+    // Use the centralized verifyToken function
+    const decoded = verifyToken(token) //
     if (!decoded || decoded.userType !== "client") {
       return NextResponse.json({ error: "Only clients can post jobs" }, { status: 403 })
     }

@@ -1,6 +1,7 @@
+// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/messages/page.tsx
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect } from "react" // Import useEffect
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Camera } from "lucide-react"
@@ -8,75 +9,131 @@ import { Badge } from "@/components/ui/badge"
 import { GlitterBackground } from "@/components/glitter-background"
 import { MessageInterface } from "@/components/messaging/message-interface"
 
-// Mock data for demo
-const mockConversations = [
-  {
-    id: "1",
-    participants: [
-      {
-        id: "client-1",
-        name: "John Smith",
-        avatar: "/placeholder.svg?height=40&width=40",
-        userType: "client" as const,
-      },
-      {
-        id: "photographer-1",
-        name: "Sarah Parker",
-        avatar: "/placeholder.svg?height=40&width=40",
-        userType: "photographer" as const,
-      },
-    ],
-    encryptionKey: "demo-encryption-key-12345",
-  },
-  {
-    id: "2",
-    participants: [
-      {
-        id: "client-2",
-        name: "Emily Johnson",
-        avatar: "/placeholder.svg?height=40&width=40",
-        userType: "client" as const,
-      },
-      {
-        id: "photographer-1",
-        name: "Sarah Parker",
-        avatar: "/placeholder.svg?height=40&width=40",
-        userType: "photographer" as const,
-      },
-    ],
-    encryptionKey: "demo-encryption-key-67890",
-  },
-]
+// Remove mockConversations data
+// const mockConversations = [...]
+
+// Define interfaces for fetched data
+interface Participant {
+  id: string;
+  name: string;
+  avatar: string;
+  userType: "client" | "photographer";
+}
+
+interface Conversation {
+  id: string;
+  participants: Participant[];
+  encryptionKey: string;
+  lastMessage?: { // Add lastMessage type if needed, as it's part of conversations in API
+    encryptedContent: string;
+    timestamp: string;
+  };
+}
+
 
 export default function MessagesPage() {
   const searchParams = useSearchParams()
   const contactId = searchParams.get("contact")
 
+  const [conversations, setConversations] = useState<Conversation[]>([]) // State for fetched conversations
+  const [loading, setLoading] = useState(true) // Loading state
+  const [error, setError] = useState<string | null>(null) // Error state
+
+  // Current user is still mocked, ideally would be fetched from auth token
   const [currentUser] = useState({
-    id: "photographer-1",
+    id: "photographer-1", // This ID must match a user in your DB for messages to display correctly
     name: "Sarah Parker",
     userType: "photographer" as const,
   })
 
-  // Auto-select conversation if contact parameter is provided
+  // Fetch conversations on component mount
   useEffect(() => {
-    if (contactId) {
-      const conversation = mockConversations.find((conv) => conv.participants.some((p) => p.id === contactId))
-      if (conversation) {
-        // Auto-select this conversation
-        console.log("Auto-selecting conversation with:", contactId)
+    const fetchConversations = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const response = await fetch("/api/messaging/conversations")
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        const data = await response.json()
+        setConversations(data.conversations)
+      } catch (err: any) {
+        console.error("Failed to fetch conversations:", err)
+        setError("Failed to load conversations. Please try again.")
+      } finally {
+        setLoading(false)
       }
     }
-  }, [contactId])
 
-  const handleSendMessage = async (conversationId: string, encryptedMessage: string) => {
-    console.log("Sending message:", { conversationId, encryptedMessage })
-    // In real app, this would call the API
+    fetchConversations()
+  }, []) // Empty dependency array means this runs once on mount
+
+  // Auto-select conversation if contact parameter is provided (remains the same)
+  useEffect(() => {
+    if (contactId && conversations.length > 0) {
+      const conversation = conversations.find((conv) => conv.participants.some((p) => p.id === contactId))
+      if (conversation) {
+        console.log("Auto-selecting conversation with:", contactId)
+        // In a real app, you would set this as the active conversation in MessageInterface state
+        // The MessageInterface component in your files already handles internal state for selected conversation
+      }
+    }
+  }, [contactId, conversations]) // Re-run if contactId or conversations change
+
+  const handleSendMessage = async (conversationId: string, encryptedMessage: string, originalMessage: string) => {
+    console.log("Sending message:", { conversationId, encryptedMessage, originalMessage })
+    try {
+      const response = await fetch("/api/messaging/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          conversationId, // This param is not used by the current backend send route but kept for consistency
+          recipientId: conversations.find(conv => conv.id === conversationId)?.participants.find(p => p.id !== currentUser.id)?.id,
+          encryptedMessage,
+          originalMessage, // Send original message for server-side moderation
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        // Handle server-side abuse detection warnings/errors
+        alert(`Message sending failed: ${data.error}`);
+        console.error("Message send API error:", data.error);
+      } else {
+        console.log("Message sent successfully:", data.messageId);
+        // In a real app, you would then update the messages state with the new message
+      }
+    } catch (err) {
+      console.error("Network error sending message:", err);
+      alert("Failed to send message due to network error.");
+    }
   }
 
   const handleReportAbuse = async (conversationId: string, messageId: string, reason: string) => {
     console.log("Reporting abuse:", { conversationId, messageId, reason })
     // In real app, this would call the abuse reporting API
+    alert(`Reporting message ${messageId} for reason: ${reason}. (Action mocked)`);
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen relative flex items-center justify-center">
+        <GlitterBackground />
+        <p className="relative z-10 text-xl text-gray-700 dark:text-gray-300">Loading messages...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen relative flex items-center justify-center">
+        <GlitterBackground />
+        <p className="relative z-10 text-xl text-red-500">{error}</p>
+      </div>
+    );
   }
 
   return (
@@ -119,7 +176,7 @@ export default function MessagesPage() {
               currentUserId={currentUser.id}
               currentUserName={currentUser.name}
               currentUserType={currentUser.userType}
-              conversations={mockConversations}
+              conversations={conversations} // Pass fetched conversations
               onSendMessage={handleSendMessage}
               onReportAbuse={handleReportAbuse}
             />
