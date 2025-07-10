@@ -189,7 +189,9 @@ export default function PhotographerDashboard() {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-
+        if (!Array.isArray(data.jobs)) {
+          throw new Error("Invalid jobs data from API: jobs is not an array");
+        }
         const mappedJobs: Job[] = data.jobs.map((job: any) => ({
           id: job.id,
           title: job.title,
