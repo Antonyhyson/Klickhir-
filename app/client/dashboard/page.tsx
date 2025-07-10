@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Star, MapPin, Clock, DollarSign, Search, Filter, Camera, CheckCircle, Users, Briefcase, Loader2 } from "lucide-react" // Added Loader2
+import { Star, MapPin, Clock, DollarSign, Search, Filter, Camera, CheckCircle, Users, Briefcase, Loader2, Bookmark, BookmarkCheck } from "lucide-react" // Added Bookmark, BookmarkCheck
 import { SandFlow } from "@/components/sand-flow"
+import { toast } from "@/hooks/use-toast" // Import toast
 
 // interface for data from /api/photographers
 interface Photographer {
@@ -55,6 +56,7 @@ export default function ClientDashboard() {
   const [loadingUserProfile, setLoadingUserProfile] = useState(true);
   const [errorUserProfile, setErrorUserProfile] = useState<string | null>(null);
 
+  const [savedPhotographerIds, setSavedPhotographerIds] = useState<Set<string>>(new Set()); // NEW: State to track saved photographers
 
   // Fetch current user's profile for the header avatar
   useEffect(() => {
@@ -124,8 +126,55 @@ export default function ClientDashboard() {
       }
     }
 
-    fetchPhotographers()
-  }, [searchTerm, sortBy, filterBy])
+    const fetchSavedPhotographers = async () => {
+      try {
+        const response = await fetch("/api/favorites/photographers");
+        if (response.ok) {
+          const data = await response.json();
+          setSavedPhotographerIds(new Set(data.savedPhotographers.map((p: any) => p.id)));
+        } else {
+          console.error("Failed to fetch saved photographers:", response.status);
+        }
+      } catch (e) {
+        console.error("Error fetching saved photographers:", e);
+      }
+    };
+
+    fetchPhotographers();
+    fetchSavedPhotographers();
+  }, [searchTerm, sortBy, filterBy]);
+
+  const handleSavePhotographer = async (photographerId: string, isSaved: boolean) => {
+    try {
+      const method = isSaved ? "DELETE" : "POST";
+      const response = await fetch("/api/favorites/photographers", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photographerId }),
+      });
+
+      if (response.ok) {
+        setSavedPhotographerIds(prev => {
+          const newSet = new Set(prev);
+          if (isSaved) {
+            newSet.delete(photographerId);
+            toast({ title: "Unsaved", description: "Photographer removed from your saved list.", variant: "default" });
+          } else {
+            newSet.add(photographerId);
+            toast({ title: "Saved!", description: "Photographer added to your saved list.", variant: "default" });
+          }
+          return newSet;
+        });
+      } else {
+        const errorData = await response.json();
+        toast({ title: "Error", description: errorData.error || "Failed to update saved status.", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Error saving/unsaving photographer:", error);
+      toast({ title: "Network Error", description: "Could not connect to server.", variant: "destructive" });
+    }
+  };
+
 
   const featuredPhotographers = photographers.filter((p) => p.featured);
   const allOtherPhotographers = photographers.filter((p) => !p.featured);
@@ -144,7 +193,7 @@ export default function ClientDashboard() {
                   <div className="verification-dot absolute -top-1 -right-1"></div>
                 </div>
                 <span className="text-xl font-light tracking-wide bg-gradient-to-r from-slate-800 via-slate-600 to-slate-800 bg-clip-text text-transparent dark:from-white dark:via-slate-300 dark:to-white">
-                  ClickHire
+                  ChromaConnect
                 </span>
                 <Badge
                   variant="secondary"
@@ -160,12 +209,18 @@ export default function ClientDashboard() {
                 <Link href="/client/jobs"> {/* Link to client job management page */}
                     <Button className="refined-button-secondary font-light">My Jobs</Button>
                 </Link>
+                {/* NEW: Link to Saved Photographers page */}
+                <Link href="/client/saved-photographers">
+                  <Button variant="outline" className="refined-button-secondary font-light">
+                    <Bookmark className="h-4 w-4 mr-2" /> Saved Photographers
+                  </Button>
+                </Link>
                 <div className="relative">
                   <Avatar className="ring-1 ring-slate-300 dark:ring-slate-600">
                     {loadingUserProfile ? (
                       <Loader2 className="h-full w-full animate-spin text-gray-400" />
                     ) : errorUserProfile ? (
-                      <User className="h-full w-full text-red-500" />
+                      <Users className="h-full w-full text-red-500" />
                     ) : (
                       <AvatarImage src={currentUserProfile?.profile_image_url || "/placeholder.svg?height=32&width=32"} />
                     )}
@@ -237,7 +292,9 @@ export default function ClientDashboard() {
                     <div className="verification-dot"></div>
                   </div>
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {featuredPhotographers.map((photographer) => (
+                    {featuredPhotographers.map((photographer) => {
+                      const isSaved = savedPhotographerIds.has(photographer.id); // Check if saved
+                      return (
                       <Card key={photographer.id} className="refined-card border-slate-200/50 dark:border-slate-700/50">
                         <CardHeader className="pb-4">
                           <div className="flex items-center space-x-3">
@@ -329,15 +386,26 @@ export default function ClientDashboard() {
                                 View Profile
                               </Button>
                             </Link>
-                            <Link href={`/messages?contact=${photographer.id}`}>
-                              <Button className="refined-button-secondary font-light" size="sm">
-                                Message
-                              </Button>
-                            </Link>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 font-light bg-transparent"
+                                onClick={() => handleSavePhotographer(photographer.id, isSaved)} // Save/Unsave button
+                            >
+                                {isSaved ? (
+                                    <>
+                                        <BookmarkCheck className="h-4 w-4 mr-1" /> Unsave
+                                    </>
+                                ) : (
+                                    <>
+                                        <Bookmark className="h-4 w-4 mr-1" /> Save
+                                    </>
+                                )}
+                            </Button>
                           </div>
                         </CardContent>
                       </Card>
-                    ))}
+                    )})}
                   </div>
                 </div>
               )}
@@ -347,7 +415,9 @@ export default function ClientDashboard() {
                 <div>
                   <h2 className="text-2xl font-light text-slate-800 dark:text-white mb-8">All Photographers</h2>
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {allOtherPhotographers.map((photographer) => (
+                    {allOtherPhotographers.map((photographer) => {
+                      const isSaved = savedPhotographerIds.has(photographer.id); // Check if saved
+                      return (
                       <Card key={photographer.id} className="refined-card">
                         <CardHeader className="pb-4">
                           <div className="flex items-center space-x-3">
@@ -439,19 +509,26 @@ export default function ClientDashboard() {
                                 View Profile
                               </Button>
                             </Link>
-                            <Link href={`/messages?contact=${photographer.id}`}>
-                              <Button
+                            <Button
                                 variant="outline"
                                 size="sm"
                                 className="border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 font-light bg-transparent"
-                              >
-                                Message
-                              </Button>
-                            </Link>
+                                onClick={() => handleSavePhotographer(photographer.id, isSaved)} // Save/Unsave button
+                            >
+                                {isSaved ? (
+                                    <>
+                                        <BookmarkCheck className="h-4 w-4 mr-1" /> Unsave
+                                    </>
+                                ) : (
+                                    <>
+                                        <Bookmark className="h-4 w-4 mr-1" /> Save
+                                    </>
+                                )}
+                            </Button>
                           </div>
                         </CardContent>
                       </Card>
-                    ))}
+                    )})}
                   </div>
                 </div>
               )}

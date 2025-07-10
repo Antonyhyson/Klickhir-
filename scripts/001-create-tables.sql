@@ -14,131 +14,31 @@ CREATE TABLE IF NOT EXISTS users (
   is_verified BOOLEAN DEFAULT FALSE,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  -- NEW: Add for password reset functionality
+  reset_password_token VARCHAR(255),
+  reset_password_expires TIMESTAMP
 );
 
--- Create photographer profiles table
-CREATE TABLE IF NOT EXISTS photographer_profiles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  bio TEXT,
-  specialties TEXT[], -- Array of specialties
-  camera_equipment TEXT[], -- Array of equipment
-  hourly_rate DECIMAL(10,2),
-  availability_status VARCHAR(20) DEFAULT 'available' CHECK (availability_status IN ('available', 'busy', 'unavailable')),
-  rating DECIMAL(3,2) DEFAULT 0.00,
-  total_reviews INTEGER DEFAULT 0,
-  profile_image_url TEXT,
-  portfolio_images TEXT[], -- Array of image URLs
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create client profiles table
-CREATE TABLE IF NOT EXISTS client_profiles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  company_name VARCHAR(255),
-  profile_image_url TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create jobs table
-CREATE TABLE IF NOT EXISTS jobs (
+CREATE TABLE IF NOT EXISTS saved_photographers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  title VARCHAR(255) NOT NULL,
-  description TEXT NOT NULL,
-  photography_type VARCHAR(100) NOT NULL,
-  duration_hours INTEGER NOT NULL,
-  budget DECIMAL(10,2) NOT NULL,
-  currency VARCHAR(3) NOT NULL,
-  job_date DATE NOT NULL,
-  job_time TIME NOT NULL,
-  location TEXT NOT NULL,
-  transportation_fee BOOLEAN DEFAULT FALSE,
-  status VARCHAR(20) DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'completed', 'cancelled')),
-  is_urgent BOOLEAN DEFAULT FALSE,
-  is_collaboration BOOLEAN DEFAULT FALSE,
-  photographers_needed INTEGER DEFAULT 1,
+  photographer_id UUID REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  UNIQUE(client_id, photographer_id) -- A client can save a photographer only once
 );
 
--- Create job applications table
-CREATE TABLE IF NOT EXISTS job_applications (
+-- Create saved jobs table (for photographers to save jobs)
+CREATE TABLE IF NOT EXISTS saved_jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  photographer_id UUID REFERENCES users(id) ON DELETE CASCADE,
   job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
-  photographer_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  message TEXT,
-  proposed_rate DECIMAL(10,2),
-  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
-  applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(job_id, photographer_id)
-);
-
--- Create portfolio posts table
-CREATE TABLE IF NOT EXISTS portfolio_posts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  photographer_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  project_name VARCHAR(255) NOT NULL,
-  description TEXT,
-  location TEXT,
-  project_date DATE,
-  images TEXT[] NOT NULL, -- Array of image URLs
-  is_featured BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  UNIQUE(photographer_id, job_id) -- A photographer can save a job only once
 );
 
--- Create reviews table
-CREATE TABLE IF NOT EXISTS reviews (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
-  client_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  photographer_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
-  comment TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create messages table
-CREATE TABLE IF NOT EXISTS messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  sender_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  recipient_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  job_id UUID REFERENCES jobs(id) ON DELETE SET NULL,
-  message TEXT NOT NULL,
-  is_read BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- NEW: Create notifications table
-CREATE TABLE IF NOT EXISTS notifications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  type VARCHAR(50) NOT NULL, -- e.g., 'job_application_received', 'application_accepted', 'review_submitted', 'new_message'
-  entity_id UUID, -- Optional: ID of the related entity (job, application, review, message)
-  message TEXT NOT NULL,
-  is_read BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-
--- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_type ON users(user_type);
-CREATE INDEX IF NOT EXISTS idx_photographer_profiles_user_id ON photographer_profiles(user_id);
-CREATE INDEX IF NOT EXISTS idx_client_profiles_user_id ON client_profiles(user_id);
-CREATE INDEX IF NOT EXISTS idx_jobs_client_id ON jobs(client_id);
-CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
-CREATE INDEX IF NOT EXISTS idx_job_applications_job_id ON job_applications(job_id);
-CREATE INDEX IF NOT EXISTS idx_job_applications_photographer_id ON job_applications(photographer_id);
-CREATE INDEX IF NOT EXISTS idx_portfolio_posts_photographer_id ON portfolio_posts(photographer_id);
-CREATE INDEX IF NOT EXISTS idx_reviews_photographer_id ON reviews(photographer_id);
-CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
-CREATE INDEX IF NOT EXISTS idx_messages_recipient_id ON messages(recipient_id);
--- NEW: Index for notifications
-CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
+-- Add indexes for better performance on new tables
+CREATE INDEX IF NOT EXISTS idx_saved_photographers_client_id ON saved_photographers(client_id);
+CREATE INDEX IF NOT EXISTS idx_saved_photographers_photographer_id ON saved_photographers(photographer_id);
+CREATE INDEX IF NOT EXISTS idx_saved_jobs_photographer_id ON saved_jobs(photographer_id);
+CREATE INDEX IF NOT EXISTS idx_saved_jobs_job_id ON saved_jobs(job_id);

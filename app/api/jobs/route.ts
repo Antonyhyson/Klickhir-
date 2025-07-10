@@ -4,8 +4,6 @@ import { sql } from "@/lib/db"
 import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/auth" // Import verifyToken from lib/auth
 
-// Remove the duplicated verifySimpleToken function from here
-
 // GET /api/jobs - Get jobs (for photographers) or posted jobs (for clients)
 export async function GET(request: NextRequest) {
   try {
@@ -16,43 +14,70 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Use the centralized verifyToken function
-    const decoded = verifyToken(token) //
+    const decoded = verifyToken(token)
     if (!decoded) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
 
     const { searchParams } = new URL(request.url)
-    // Prioritize userType from token if not explicitly provided in search params
     const userType = searchParams.get("userType") || decoded.userType
     const status = searchParams.get("status") || "open"
     const isCollaboration = searchParams.get("collaboration") === "true"
 
-    let jobs
+    // New filter parameters
+    const minDate = searchParams.get("minDate") // YYYY-MM-DD
+    const maxDate = searchParams.get("maxDate") // YYYY-MM-DD
+    const minClientRating = searchParams.get("minClientRating") // Number string
+
+    let query = ``
+    const queryParams: any[] = [];
 
     if (userType === "photographer") {
-      // Get available jobs for photographers
-      jobs = await sql`
-        SELECT j.*, u.first_name, u.last_name,
-               (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = j.id) as application_count
+      // Base query for photographers searching jobs
+      query = `
+        SELECT
+          j.*,
+          u.first_name,
+          u.last_name,
+          cp.rating as client_rating, -- Join client profile to get client rating
+          (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = j.id) as application_count
         FROM jobs j
         JOIN users u ON j.client_id = u.id
-        WHERE j.status = ${status}
-        AND j.is_collaboration = ${isCollaboration}
-        ORDER BY j.created_at DESC
-        LIMIT 50
-      `
+        LEFT JOIN client_profiles cp ON u.id = cp.user_id -- Join to get client rating
+        WHERE j.status = $1
+        AND j.is_collaboration = $2
+      `;
+      queryParams.push(status, isCollaboration);
+
+      if (minDate) {
+        queryParams.push(minDate);
+        query += ` AND j.job_date >= $${queryParams.length}`;
+      }
+      if (maxDate) {
+        queryParams.push(maxDate);
+        query += ` AND j.job_date <= $${queryParams.length}`;
+      }
+      if (minClientRating) {
+        queryParams.push(parseFloat(minClientRating));
+        query += ` AND cp.rating >= $${queryParams.length}`;
+      }
+
+      query += ` ORDER BY j.created_at DESC LIMIT 50`; // Always add limit last
+
     } else {
-      // Get jobs posted by this client
-      jobs = await sql`
+      // Get jobs posted by this client (no new filters apply here as they're for finding jobs, not managing owned jobs)
+      query = `
         SELECT j.*,
                (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = j.id) as application_count
         FROM jobs j
-        WHERE j.client_id = ${decoded.userId}
+        WHERE j.client_id = $1
         ORDER BY j.created_at DESC
         LIMIT 50
-      `
+      `;
+      queryParams.push(decoded.userId);
     }
+
+    const jobs = await sql.unsafe(query, queryParams);
 
     return NextResponse.json({ jobs })
   } catch (error) {
@@ -71,8 +96,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Use the centralized verifyToken function
-    const decoded = verifyToken(token) //
+    const decoded = verifyToken(token)
     if (!decoded || decoded.userType !== "client") {
       return NextResponse.json({ error: "Only clients can post jobs" }, { status: 403 })
     }
@@ -124,5 +148,74 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Create job error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+// NEW: PUT /api/jobs - Update job status (e.g., mark as complete)
+export async function PUT(request: NextRequest) {
+  try {
+    const cookieStore = cookies();
+    const token = cookieStore.get("auth-token")?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded || decoded.userType !== "client") {
+      return NextResponse.json({ error: "Only clients can update job status" }, { status: 403 });
+    }
+
+    const { jobId, newStatus, photographerId } = await request.json(); // newStatus should be 'completed'
+
+    if (!jobId || !newStatus || !['open', 'in_progress', 'completed', 'cancelled'].includes(newStatus)) {
+      return NextResponse.json({ error: "Job ID and a valid new status are required" }, { status: 400 });
+    }
+
+    // Verify that the client owns this job
+    const [jobCheck] = await sql`
+      SELECT client_id, title FROM jobs WHERE id = ${jobId}
+    `;
+
+    if (!jobCheck) {
+      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    }
+    if (jobCheck.client_id !== decoded.userId) {
+      return NextResponse.json({ error: "You are not authorized to update this job" }, { status: 403 });
+    }
+
+    // Update the job status
+    const [updatedJob] = await sql`
+      UPDATE jobs
+      SET status = ${newStatus}, updated_at = NOW()
+      WHERE id = ${jobId}
+      RETURNING id, status;
+    `;
+
+    // If the job is marked as 'completed' and there's a photographer associated (via an accepted application)
+    // send a notification to the photographer.
+    if (newStatus === 'completed' && photographerId) {
+        const [photographerUser] = await sql`SELECT first_name, last_name FROM users WHERE id = ${photographerId}`;
+        if (photographerUser) {
+            const notificationMessage = `Your job "${jobCheck.title}" has been marked as completed by the client. Don't forget to leave a review!`;
+            await sql`
+                INSERT INTO notifications (user_id, type, entity_id, message, is_read)
+                VALUES (${photographerId}, 'job_completed', ${jobId}, ${notificationMessage}, FALSE);
+            `;
+        }
+    }
+
+
+    return NextResponse.json(
+      {
+        message: `Job status updated to '${newStatus}'`,
+        job: updatedJob,
+      },
+      { status: 200 }
+    );
+
+  } catch (error) {
+    console.error("Update job status API error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

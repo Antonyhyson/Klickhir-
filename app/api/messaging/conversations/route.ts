@@ -4,8 +4,6 @@ import { sql } from "@/lib/db"
 import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/auth" // Import verifyToken from lib/auth
 
-// Remove the duplicated verifySimpleToken function from here
-
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = cookies()
@@ -15,13 +13,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Use the centralized verifyToken function
-    const decoded = verifyToken(token) //
+    const decoded = verifyToken(token)
     if (!decoded) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
 
-    // Get conversations for the current user
+    // Get conversations for the current user, joining to fetch profile image URLs
     const conversations = await sql`
       SELECT DISTINCT
         CASE
@@ -31,6 +28,12 @@ export async function GET(request: NextRequest) {
         u.first_name,
         u.last_name,
         u.user_type,
+        -- Select profile image based on user_type
+        CASE
+            WHEN u.user_type = 'photographer' THEN pp.profile_image_url
+            WHEN u.user_type = 'client' THEN cp.profile_image_url
+            ELSE NULL
+        END as profile_image_url,
         MAX(m.created_at) as last_message_time
       FROM messages m
       JOIN users u ON (
@@ -39,8 +42,10 @@ export async function GET(request: NextRequest) {
           ELSE m.sender_id = u.id
         END
       )
+      LEFT JOIN photographer_profiles pp ON u.id = pp.user_id AND u.user_type = 'photographer'
+      LEFT JOIN client_profiles cp ON u.id = cp.user_id AND u.user_type = 'client'
       WHERE m.sender_id = ${decoded.userId} OR m.recipient_id = ${decoded.userId}
-      GROUP BY other_user_id, u.first_name, u.last_name, u.user_type
+      GROUP BY other_user_id, u.first_name, u.last_name, u.user_type, profile_image_url
       ORDER BY last_message_time DESC
     `
 
@@ -52,13 +57,16 @@ export async function GET(request: NextRequest) {
           id: decoded.userId,
           name: `${decoded.firstName} ${decoded.lastName}`, // Use decoded token's user info
           userType: decoded.userType,
-          avatar: "/placeholder.svg?height=40&width=40",
+          // Assuming the current user's avatar comes from a separate profile fetch or is mocked elsewhere
+          // For now, keep a placeholder for the *current user's* own avatar if it's not dynamically pulled
+          // from this specific query context. In a real app, `users/me` API provides it.
+          avatar: "/placeholder.svg?height=40&width=40", // Fallback, would fetch from /api/users/me on client
         },
         {
           id: conv.other_user_id,
           name: `${conv.first_name} ${conv.last_name}`,
           userType: conv.user_type,
-          avatar: "/placeholder.svg?height=40&width=40",
+          avatar: conv.profile_image_url || "/placeholder.svg?height=40&width=40", // Use fetched URL or fallback
         },
       ],
       encryptionKey: `key-${decoded.userId}-${conv.other_user_id}`, // In real app, this would be properly generated

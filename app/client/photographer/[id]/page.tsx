@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Star, MapPin, Phone, Share, MessageCircle, Bookmark, MoreHorizontal, Camera } from "lucide-react"
+import { ArrowLeft, Star, MapPin, Phone, Share, MessageCircle, Bookmark, MoreHorizontal, Camera, BookmarkCheck } from "lucide-react" // Added BookmarkCheck
 import { GlitterBackground } from "@/components/glitter-background"
+import { toast } from "@/hooks/use-toast" // Import toast for notifications
+
 
 interface PhotographerProfile {
   id: string;
@@ -65,6 +67,7 @@ export default function ClientPhotographerView() {
   const [error, setError] = useState<string | null>(null)
   const [loadingReviews, setLoadingReviews] = useState(true) // New loading state for reviews
   const [reviewsError, setReviewsError] = useState<string | null>(null) // New error state for reviews
+  const [isSaved, setIsSaved] = useState(false); // NEW: State to track if photographer is saved
 
 
   useEffect(() => {
@@ -159,9 +162,26 @@ export default function ClientPhotographerView() {
       }
     };
 
+    // NEW: Fetch saved status for this photographer
+    const fetchSavedStatus = async () => {
+      try {
+        const response = await fetch("/api/favorites/photographers");
+        if (response.ok) {
+          const data = await response.json();
+          const savedIds = new Set(data.savedPhotographers.map((p: any) => p.id));
+          setIsSaved(savedIds.has(id));
+        } else {
+          console.error("Failed to fetch saved photographers for status check:", response.status);
+        }
+      } catch (e) {
+        console.error("Error fetching saved status:", e);
+      }
+    };
+
 
     fetchData();
     fetchReviews(); // Fetch reviews concurrently
+    fetchSavedStatus(); // NEW: Fetch saved status
   }, [id]);
 
 
@@ -181,6 +201,36 @@ export default function ClientPhotographerView() {
       alert("Photographer ID not available for contact.");
     }
   }
+
+  // NEW: Handle save/unsave photographer
+  const handleSavePhotographer = async () => {
+    if (!id) return; // Ensure photographer ID is available
+
+    try {
+      const method = isSaved ? "DELETE" : "POST";
+      const response = await fetch("/api/favorites/photographers", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photographerId: id }),
+      });
+
+      if (response.ok) {
+        setIsSaved(prev => !prev); // Toggle saved state
+        toast({
+          title: isSaved ? "Unsaved" : "Saved!",
+          description: isSaved ? "Photographer removed from your saved list." : "Photographer added to your saved list.",
+          variant: "default",
+        });
+      } else {
+        const errorData = await response.json();
+        toast({ title: "Error", description: errorData.error || "Failed to update saved status.", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Error saving/unsaving photographer:", error);
+      toast({ title: "Network Error", description: "Could not connect to server.", variant: "destructive" });
+    }
+  };
+
 
   if (loading) {
     return (
@@ -225,7 +275,7 @@ export default function ClientPhotographerView() {
               </Link>
               <div className="flex items-center space-x-2">
                 <Camera className="h-5 w-5 text-blue-600" />
-                <span className="font-semibold">ClickHire</span>
+                <span className="font-semibold">ChromaConnect</span>
                 <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                   Client View
                 </Badge>
@@ -254,7 +304,7 @@ export default function ClientPhotographerView() {
                     <h1 className="text-2xl font-bold">{photographer.username}</h1>
                     <p className="text-gray-600">{photographer.name}</p>
                   </div>
-                  {photographer.isClient && (
+                  {photographer.isClient && ( // This is for client viewing photographer's profile
                     <div className="flex space-x-2">
                       <Button onClick={handleContact}>
                         <Phone className="h-4 w-4 mr-1" />
@@ -263,6 +313,20 @@ export default function ClientPhotographerView() {
                       <Button variant="outline" onClick={() => handleShare("0")}>
                         <Share className="h-4 w-4 mr-1" />
                         Share Profile
+                      </Button>
+                      <Button
+                          variant="outline"
+                          onClick={handleSavePhotographer} // NEW: Save/Unsave button for profile view
+                      >
+                          {isSaved ? (
+                              <>
+                                  <BookmarkCheck className="h-4 w-4 mr-1" /> Unsave
+                              </>
+                          ) : (
+                              <>
+                                  <Bookmark className="h-4 w-4 mr-1" /> Save
+                              </>
+                          )}
                       </Button>
                     </div>
                   )}

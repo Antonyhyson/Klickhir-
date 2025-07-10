@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Star, MapPin, Camera, Clock, DollarSign, Users, Briefcase, TrendingUp, Send, Loader2, Filter, X } from "lucide-react"
+import { Star, MapPin, Camera, Clock, DollarSign, Users, Briefcase, TrendingUp, Send, Loader2, Filter, X, Calendar as CalendarIcon, Bookmark, BookmarkCheck } from "lucide-react" // Added Bookmark, BookmarkCheck
 import { GlitterBackground } from "@/components/glitter-background"
 import Link from "next/link"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
@@ -16,7 +16,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 
 interface Job {
   id: string;
@@ -24,6 +27,7 @@ interface Job {
   client_id: string;
   client_first_name: string;
   client_last_name: string;
+  client_rating?: number; // NEW: Client's average rating
   location: string;
   distance?: string;
   job_date: string;
@@ -91,16 +95,25 @@ export default function PhotographerDashboard() {
   const [filterMinBudget, setFilterMinBudget] = useState<string>("");
   const [filterMaxBudget, setFilterMaxBudget] = useState<string>("");
   const [filterUrgency, setFilterUrgency] = useState<"true" | "false" | null>(null);
+  const [filterMinDate, setFilterMinDate] = useState<Date | undefined>(undefined);
+  const [filterMaxDate, setFilterMaxDate] = useState<Date | undefined>(undefined);
+  const [filterMinClientRating, setFilterMinClientRating] = useState<string | null>(null);
+
   const [appliedFilters, setAppliedFilters] = useState({
     type: null as string | null,
     minBudget: "",
     maxBudget: "",
     urgency: null as "true" | "false" | null,
+    minDate: undefined as Date | undefined,
+    maxDate: undefined as Date | undefined,
+    minClientRating: null as string | null,
   });
 
   const [currentUserProfile, setCurrentUserProfile] = useState<CurrentUserProfile | null>(null);
   const [loadingUserProfile, setLoadingUserProfile] = useState(true);
   const [errorUserProfile, setErrorUserProfile] = useState<string | null>(null);
+
+  const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set()); // NEW: State to track saved jobs
 
 
   // Fetch current user's profile for the header avatar/links
@@ -162,10 +175,14 @@ export default function PhotographerDashboard() {
           collaboration: isCollaboration ? "true" : "false",
         });
 
-        if (filterJobType) queryParams.append("photographyType", filterJobType);
-        if (filterMinBudget) queryParams.append("minBudget", filterMinBudget);
-        if (filterMaxBudget) queryParams.append("maxBudget", filterMaxBudget);
-        if (filterUrgency) queryParams.append("isUrgent", filterUrgency);
+        if (appliedFilters.type) queryParams.append("photographyType", appliedFilters.type);
+        if (appliedFilters.minBudget) queryParams.append("minBudget", appliedFilters.minBudget);
+        if (appliedFilters.maxBudget) queryParams.append("maxBudget", appliedFilters.maxBudget);
+        if (appliedFilters.urgency) queryParams.append("isUrgent", appliedFilters.urgency);
+        if (appliedFilters.minDate) queryParams.append("minDate", format(appliedFilters.minDate, "yyyy-MM-dd"));
+        if (appliedFilters.maxDate) queryParams.append("maxDate", format(appliedFilters.maxDate, "yyyy-MM-dd"));
+        if (appliedFilters.minClientRating) queryParams.append("minClientRating", appliedFilters.minClientRating);
+
 
         const response = await fetch(`/api/jobs?${queryParams.toString()}`);
         if (!response.ok) {
@@ -179,6 +196,7 @@ export default function PhotographerDashboard() {
           client_id: job.client_id,
           client_first_name: job.first_name,
           client_last_name: job.last_name,
+          client_rating: job.client_rating, // Map client rating
           location: job.location,
           distance: `${(Math.random() * 10 + 1).toFixed(1)} miles`,
           job_date: new Date(job.job_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
@@ -210,9 +228,26 @@ export default function PhotographerDashboard() {
       }
     };
 
+    // NEW: Fetch saved jobs
+    const fetchSavedJobs = async () => {
+      try {
+        const response = await fetch("/api/favorites/jobs");
+        if (response.ok) {
+          const data = await response.json();
+          setSavedJobIds(new Set(data.savedJobs.map((job: any) => job.id)));
+        } else {
+          console.error("Failed to fetch saved jobs:", response.status);
+        }
+      } catch (e) {
+        console.error("Error fetching saved jobs:", e);
+      }
+    };
+
     fetchJobs(false);
     fetchJobs(true);
-  }, [filterJobType, filterMinBudget, filterMaxBudget, filterUrgency]);
+    fetchSavedJobs(); // Fetch saved jobs on mount and filter changes
+  }, [appliedFilters.type, appliedFilters.minBudget, appliedFilters.maxBudget, appliedFilters.urgency, appliedFilters.minDate, appliedFilters.maxDate, appliedFilters.minClientRating]);
+
 
   const handleApplyClick = (job: Job) => {
     setSelectedJobToApply(job);
@@ -276,6 +311,9 @@ export default function PhotographerDashboard() {
       minBudget: filterMinBudget,
       maxBudget: filterMaxBudget,
       urgency: filterUrgency,
+      minDate: filterMinDate,
+      maxDate: filterMaxDate,
+      minClientRating: filterMinClientRating,
     });
     setIsFilterModalOpen(false);
   };
@@ -285,11 +323,17 @@ export default function PhotographerDashboard() {
     setFilterMinBudget("");
     setFilterMaxBudget("");
     setFilterUrgency(null);
+    setFilterMinDate(undefined);
+    setFilterMaxDate(undefined);
+    setFilterMinClientRating(null);
     setAppliedFilters({
       type: null,
       minBudget: "",
       maxBudget: "",
       urgency: null,
+      minDate: undefined,
+      maxDate: undefined,
+      minClientRating: null,
     });
     setIsFilterModalOpen(false);
   };
@@ -298,7 +342,42 @@ export default function PhotographerDashboard() {
     appliedFilters.type ||
     appliedFilters.minBudget ||
     appliedFilters.maxBudget ||
-    appliedFilters.urgency;
+    appliedFilters.urgency ||
+    appliedFilters.minDate ||
+    appliedFilters.maxDate ||
+    appliedFilters.minClientRating;
+
+  // NEW: Handle save/unsave job
+  const handleSaveJob = async (jobId: string, isSaved: boolean) => {
+    try {
+      const method = isSaved ? "DELETE" : "POST";
+      const response = await fetch("/api/favorites/jobs", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId }),
+      });
+
+      if (response.ok) {
+        setSavedJobIds(prev => {
+          const newSet = new Set(prev);
+          if (isSaved) {
+            newSet.delete(jobId);
+            toast({ title: "Unsaved", description: "Job removed from your saved list.", variant: "default" });
+          } else {
+            newSet.add(jobId);
+            toast({ title: "Saved!", description: "Job added to your saved list.", variant: "default" });
+          }
+          return newSet;
+        });
+      } else {
+        const errorData = await response.json();
+        toast({ title: "Error", description: errorData.error || "Failed to update saved status.", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Error saving/unsaving job:", error);
+      toast({ title: "Network Error", description: "Could not connect to server.", variant: "destructive" });
+    }
+  };
 
 
   return (
@@ -311,7 +390,7 @@ export default function PhotographerDashboard() {
             <div className="flex items-center justify-between">
               <Link href="/" className="flex items-center space-x-2">
                 <Camera className="h-6 w-6 text-green-600" />
-                <span className="text-xl font-bold">ClickHire</span>
+                <span className="text-xl font-bold">ChromaConnect</span>
                 <Badge variant="secondary" className="bg-green-100 text-green-800">
                   Photographer
                 </Badge>
@@ -322,6 +401,12 @@ export default function PhotographerDashboard() {
                 </Link>
                 <Link href="/photographer/portfolio">
                   <Button variant="outline">My Portfolio</Button>
+                </Link>
+                {/* NEW: Link to Saved Jobs page */}
+                <Link href="/photographer/saved-jobs">
+                  <Button variant="outline" className="refined-button-secondary font-light">
+                    <Bookmark className="h-4 w-4 mr-2" /> Saved Jobs
+                  </Button>
                 </Link>
                 <Link href="/photographer/profile"> {/* Link to photographer's own profile page */}
                     <Button variant="outline">Settings</Button>
@@ -446,10 +531,13 @@ export default function PhotographerDashboard() {
                 {isAnyFilterActive && (
                     <div className="flex flex-wrap gap-2 text-sm text-gray-600">
                         <span>Active Filters:</span>
-                        {appliedFilters.type && <Badge variant="secondary">{appliedFilters.type} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
-                        {appliedFilters.minBudget && <Badge variant="secondary">Min Budget: ${appliedFilters.minBudget} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
-                        {appliedFilters.maxBudget && <Badge variant="secondary">Max Budget: ${appliedFilters.maxBudget} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
-                        {appliedFilters.urgency && <Badge variant="secondary">Urgent: {appliedFilters.urgency === "true" ? "Yes" : "No"} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
+                        {appliedFilters.type && <Badge variant="secondary">{appliedFilters.type} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => { setFilterJobType(null); setAppliedFilters(prev => ({ ...prev, type: null })); }} /></Badge>}
+                        {appliedFilters.minBudget && <Badge variant="secondary">Min Budget: ${appliedFilters.minBudget} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => { setFilterMinBudget(""); setAppliedFilters(prev => ({ ...prev, minBudget: "" })); }} /></Badge>}
+                        {appliedFilters.maxBudget && <Badge variant="secondary">Max Budget: ${appliedFilters.maxBudget} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => { setFilterMaxBudget(""); setAppliedFilters(prev => ({ ...prev, maxBudget: "" })); }} /></Badge>}
+                        {appliedFilters.urgency && <Badge variant="secondary">Urgent: {appliedFilters.urgency === "true" ? "Yes" : "No"} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => { setFilterUrgency(null); setAppliedFilters(prev => ({ ...prev, urgency: null })); }} /></Badge>}
+                        {appliedFilters.minDate && <Badge variant="secondary">From: {format(appliedFilters.minDate, "MMM dd, yyyy")} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => { setFilterMinDate(undefined); setAppliedFilters(prev => ({ ...prev, minDate: undefined })); }} /></Badge>}
+                        {appliedFilters.maxDate && <Badge variant="secondary">To: {format(appliedFilters.maxDate, "MMM dd, yyyy")} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => { setFilterMaxDate(undefined); setAppliedFilters(prev => ({ ...prev, maxDate: undefined })); }} /></Badge>}
+                        {appliedFilters.minClientRating && <Badge variant="secondary">Client Rating: {appliedFilters.minClientRating}+ <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => { setFilterMinClientRating(null); setAppliedFilters(prev => ({ ...prev, minClientRating: null })); }} /></Badge>}
                         <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-blue-500 hover:underline">Clear All</Button>
                     </div>
                 )}
@@ -462,7 +550,9 @@ export default function PhotographerDashboard() {
                 )}
 
                 <div className="grid gap-6">
-                  {!loadingNearby && !errorNearby && nearbyJobs.map((job) => (
+                  {!loadingNearby && !errorNearby && nearbyJobs.map((job) => {
+                    const isSaved = savedJobIds.has(job.id); // Check if job is saved
+                    return (
                     <Card key={job.id} className="hover:shadow-lg transition-shadow">
                       <CardHeader>
                         <div className="flex items-start justify-between">
@@ -478,7 +568,15 @@ export default function PhotographerDashboard() {
                                 {job.photography_type}
                               </Badge>
                             </div>
-                            <CardDescription>by {job.client_first_name} {job.client_last_name}</CardDescription>
+                            <CardDescription className="flex items-center space-x-2">
+                              <span>by {job.client_first_name} {job.client_last_name}</span>
+                              {job.client_rating !== undefined && job.client_rating > 0 && (
+                                <span className="flex items-center text-xs text-gray-500">
+                                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 mr-0.5" />
+                                  {job.client_rating.toFixed(1)}
+                                </span>
+                              )}
+                            </CardDescription>
                           </div>
                           <div className="text-right">
                             <p className="text-2xl font-bold text-green-600">
@@ -514,7 +612,20 @@ export default function PhotographerDashboard() {
                           >
                             {appliedJobs.has(job.id) ? "Applied" : "Apply Now"}
                           </Button>
-                          <Button variant="outline">Save Job</Button>
+                          <Button
+                              variant="outline"
+                              onClick={() => handleSaveJob(job.id, isSaved)} // Save/Unsave button
+                          >
+                              {isSaved ? (
+                                  <>
+                                      <BookmarkCheck className="h-4 w-4 mr-1" /> Unsave Job
+                                  </>
+                              ) : (
+                                  <>
+                                      <Bookmark className="h-4 w-4 mr-1" /> Save Job
+                                  </>
+                              )}
+                          </Button>
                           <Link href={`/messages?contact=${job.client_id}`}>
                             <Button variant="outline" className="bg-green-600 text-white hover:bg-green-700">
                               Message Client
@@ -523,7 +634,7 @@ export default function PhotographerDashboard() {
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                  )})}
                 </div>
               </div>
             </TabsContent>
@@ -539,10 +650,13 @@ export default function PhotographerDashboard() {
                 {isAnyFilterActive && (
                     <div className="flex flex-wrap gap-2 text-sm text-gray-600">
                         <span>Active Filters:</span>
-                        {appliedFilters.type && <Badge variant="secondary">{appliedFilters.type} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
-                        {appliedFilters.minBudget && <Badge variant="secondary">Min Budget: ${appliedFilters.minBudget} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
-                        {appliedFilters.maxBudget && <Badge variant="secondary">Max Budget: ${appliedFilters.maxBudget} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
-                        {appliedFilters.urgency && <Badge variant="secondary">Urgent: {appliedFilters.urgency === "true" ? "Yes" : "No"} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={handleClearFilters} /></Badge>}
+                        {appliedFilters.type && <Badge variant="secondary">{appliedFilters.type} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => { setFilterJobType(null); setAppliedFilters(prev => ({ ...prev, type: null })); }} /></Badge>}
+                        {appliedFilters.minBudget && <Badge variant="secondary">Min Budget: ${appliedFilters.minBudget} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => { setFilterMinBudget(""); setAppliedFilters(prev => ({ ...prev, minBudget: "" })); }} /></Badge>}
+                        {appliedFilters.maxBudget && <Badge variant="secondary">Max Budget: ${appliedFilters.maxBudget} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => { setFilterMaxBudget(""); setAppliedFilters(prev => ({ ...prev, maxBudget: "" })); }} /></Badge>}
+                        {appliedFilters.urgency && <Badge variant="secondary">Urgent: {appliedFilters.urgency === "true" ? "Yes" : "No"} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => { setFilterUrgency(null); setAppliedFilters(prev => ({ ...prev, urgency: null })); }} /></Badge>}
+                        {appliedFilters.minDate && <Badge variant="secondary">From: {format(appliedFilters.minDate, "MMM dd, yyyy")} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => { setFilterMinDate(undefined); setAppliedFilters(prev => ({ ...prev, minDate: undefined })); }} /></Badge>}
+                        {appliedFilters.maxDate && <Badge variant="secondary">To: {format(appliedFilters.maxDate, "MMM dd, yyyy")} <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => { setFilterMaxDate(undefined); setAppliedFilters(prev => ({ ...prev, maxDate: undefined })); }} /></Badge>}
+                        {appliedFilters.minClientRating && <Badge variant="secondary">Client Rating: {appliedFilters.minClientRating}+ <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => { setFilterMinClientRating(null); setAppliedFilters(prev => ({ ...prev, minClientRating: null })); }} /></Badge>}
                         <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-blue-500 hover:underline">Clear All</Button>
                     </div>
                 )}
@@ -554,7 +668,9 @@ export default function PhotographerDashboard() {
                 )}
 
                 <div className="grid gap-6">
-                  {!loadingCollaboration && !errorCollaboration && collaborationJobs.map((job) => (
+                  {!loadingCollaboration && !errorCollaboration && collaborationJobs.map((job) => {
+                    const isSaved = savedJobIds.has(job.id); // Check if job is saved
+                    return (
                     <Card
                       key={job.id}
                       className={`hover:shadow-lg transition-shadow ${job.is_featured ? "border-2 border-yellow-200" : ""}`}
@@ -571,7 +687,15 @@ export default function PhotographerDashboard() {
                                 {job.photography_type}
                               </Badge>
                             </div>
-                            <CardDescription>by {job.client_first_name} {job.client_last_name}</CardDescription>
+                            <CardDescription className="flex items-center space-x-2">
+                              <span>by {job.client_first_name} {job.client_last_name}</span>
+                              {job.client_rating !== undefined && job.client_rating > 0 && (
+                                <span className="flex items-center text-xs text-gray-500">
+                                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 mr-0.5" />
+                                  {job.client_rating.toFixed(1)}
+                                </span>
+                              )}
+                            </CardDescription>
                           </div>
                           <div className="text-right">
                             <p className="text-2xl font-bold text-green-600">
@@ -613,14 +737,27 @@ export default function PhotographerDashboard() {
                           >
                             {appliedJobs.has(job.id) ? "Applied" : "Join Collaboration"}
                           </Button>
-                          <Button variant="outline">View Details</Button>
+                          <Button
+                              variant="outline"
+                              onClick={() => handleSaveJob(job.id, isSaved)} // Save/Unsave button
+                          >
+                              {isSaved ? (
+                                  <>
+                                      <BookmarkCheck className="h-4 w-4 mr-1" /> Unsave Job
+                                  </>
+                              ) : (
+                                  <>
+                                      <Bookmark className="h-4 w-4 mr-1" /> Save Job
+                                  </>
+                              )}
+                          </Button>
                           <Link href={`/messages?contact=${job.client_id}`}>
                             <Button variant="outline">Contact Team</Button>
                           </Link>
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                  )})}
                 </div>
               </div>
             </TabsContent>
@@ -738,6 +875,76 @@ export default function PhotographerDashboard() {
                   <SelectItem value="">All</SelectItem>
                   <SelectItem value="true">Urgent Only</SelectItem>
                   <SelectItem value="false">Not Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="filterMinDate">Job Date Range</Label>
+              <div className="flex items-center space-x-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !filterMinDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {filterMinDate ? format(filterMinDate, "PPP") : <span>Start Date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={filterMinDate}
+                      onSelect={setFilterMinDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span>-</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !filterMaxDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {filterMaxDate ? format(filterMaxDate, "PPP") : <span>End Date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={filterMaxDate}
+                      onSelect={setFilterMaxDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="filterMinClientRating">Minimum Client Rating</Label>
+              <Select
+                value={filterMinClientRating || ""}
+                onValueChange={(value) => setFilterMinClientRating(value === "" ? null : value)}
+              >
+                <SelectTrigger id="filterMinClientRating">
+                  <SelectValue placeholder="Any rating" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Any Rating</SelectItem>
+                  <SelectItem value="4.5">4.5 Stars & Up</SelectItem>
+                  <SelectItem value="4">4 Stars & Up</SelectItem>
+                  <SelectItem value="3.5">3.5 Stars & Up</SelectItem>
+                  <SelectItem value="3">3 Stars & Up</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -162,7 +162,7 @@ export default function LoginPage() {
         <Card className="bg-white/95 backdrop-blur-sm">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Welcome Back</CardTitle>
-            <CardDescription>Sign in to your ClickHire account</CardDescription>
+            <CardDescription>Sign in to your ChromaConnect account</CardDescription>
           </CardHeader>
 
           <CardContent>
@@ -208,6 +208,9 @@ export default function LoginPage() {
                         required
                         disabled={isLoading}
                       />
+                      <Link href="/forgot-password" className="text-sm text-blue-600 hover:underline block text-right">
+                        Forgot password?
+                      </Link>
                     </div>
 
                     <Button type="submit" className="w-full" disabled={isLoading}>
@@ -239,6 +242,9 @@ export default function LoginPage() {
                         required
                         disabled={isLoading}
                       />
+                      <Link href="/forgot-password" className="text-sm text-green-600 hover:underline block text-right">
+                        Forgot password?
+                      </Link>
                     </div>
 
                     <Button type="submit" className="w-full bg-green-600 hover:bg-green-700" disabled={isLoading}>
@@ -319,17 +325,6 @@ export default function LoginPage() {
               <Link href="/register" className="text-blue-600 hover:underline">
                 Sign up here
               </Link>
-            </div>
-
-            {/* Demo credentials helper */}
-            <div className="mt-4 p-3 bg-gray-50 rounded-md">
-              <p className="text-xs text-gray-600 font-medium mb-2">Demo Credentials:</p>
-              <div className="space-y-1">
-                <p className="text-xs text-gray-600">📧 sarah.johnson@example.com (Photographer)</p>
-                <p className="text-xs text-gray-600">📧 john.client@example.com (Client)</p>
-                <p className="text-xs text-gray-600">🔑 Password: password123</p>
-                <p className="text-xs text-gray-600">🔐 MFA: If Authenticator, scan QR at registration. If SMS, check console for code (e.g., 123456).</p>
-              </div>
             </div>
           </CardContent>
         </Card>

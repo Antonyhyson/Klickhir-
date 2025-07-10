@@ -1,16 +1,14 @@
 // antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/messages/page.tsx
 "use client"
 
-import { useState, useEffect } from "react" // Import useEffect
+import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Camera } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { GlitterBackground } from "@/components/glitter-background"
 import { MessageInterface } from "@/components/messaging/message-interface"
-
-// Remove mockConversations data
-// const mockConversations = [...]
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar" // Import Avatar components
 
 // Define interfaces for fetched data
 interface Participant {
@@ -24,31 +22,63 @@ interface Conversation {
   id: string;
   participants: Participant[];
   encryptionKey: string;
-  lastMessage?: { // Add lastMessage type if needed, as it's part of conversations in API
+  lastMessage?: {
     encryptedContent: string;
     timestamp: string;
   };
 }
 
+interface CurrentUser {
+  id: string;
+  name: string;
+  userType: "client" | "photographer";
+  avatar?: string; // Add avatar field
+}
 
 export default function MessagesPage() {
   const searchParams = useSearchParams()
   const contactId = searchParams.get("contact")
 
-  const [conversations, setConversations] = useState<Conversation[]>([]) // State for fetched conversations
-  const [loading, setLoading] = useState(true) // Loading state
-  const [error, setError] = useState<string | null>(null) // Error state
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null); // State for current user profile
+  const [loadingCurrentUser, setLoadingCurrentUser] = useState(true);
+  const [errorCurrentUser, setErrorCurrentUser] = useState<string | null>(null);
 
-  // Current user is still mocked, ideally would be fetched from auth token
-  const [currentUser] = useState({
-    id: "photographer-1", // This ID must match a user in your DB for messages to display correctly
-    name: "Sarah Parker",
-    userType: "photographer" as const,
-  })
 
-  // Fetch conversations on component mount
+  // Fetch current user's profile
+  useEffect(() => {
+    const fetchCurrentUserProfile = async () => {
+      setLoadingCurrentUser(true);
+      setErrorCurrentUser(null);
+      try {
+        const response = await fetch("/api/users/me");
+        if (!response.ok) {
+          throw new Error(`Failed to fetch current user profile: ${response.status}`);
+        }
+        const data = await response.json();
+        setCurrentUser({
+          id: data.user.id,
+          name: `${data.user.first_name} ${data.user.last_name}`,
+          userType: data.user.user_type,
+          avatar: data.user.profile_image_url || "/placeholder.svg?height=40&width=40",
+        });
+      } catch (e: any) {
+        console.error("Error fetching current user profile:", e);
+        setErrorCurrentUser("Failed to load your profile information.");
+      } finally {
+        setLoadingCurrentUser(false);
+      }
+    };
+    fetchCurrentUserProfile();
+  }, []);
+
+  // Fetch conversations when current user is loaded
   useEffect(() => {
     const fetchConversations = async () => {
+      if (!currentUser) return; // Only fetch conversations once currentUser is loaded
+
       setLoading(true)
       setError(null)
       try {
@@ -66,20 +96,24 @@ export default function MessagesPage() {
       }
     }
 
-    fetchConversations()
-  }, []) // Empty dependency array means this runs once on mount
+    if (currentUser) {
+      fetchConversations();
+    }
+  }, [currentUser]); // Depend on currentUser
 
-  // Auto-select conversation if contact parameter is provided (remains the same)
+
+  // Auto-select conversation if contact parameter is provided
   useEffect(() => {
     if (contactId && conversations.length > 0) {
       const conversation = conversations.find((conv) => conv.participants.some((p) => p.id === contactId))
       if (conversation) {
         console.log("Auto-selecting conversation with:", contactId)
-        // In a real app, you would set this as the active conversation in MessageInterface state
-        // The MessageInterface component in your files already handles internal state for selected conversation
+        // Note: MessageInterface manages its own selectedConversation state internally.
+        // If you want to programmatically select, you'd pass it as a prop.
+        // For this demo, we'll rely on the user clicking a conversation.
       }
     }
-  }, [contactId, conversations]) // Re-run if contactId or conversations change
+  }, [contactId, conversations])
 
   const handleSendMessage = async (conversationId: string, encryptedMessage: string, originalMessage: string) => {
     console.log("Sending message:", { conversationId, encryptedMessage, originalMessage })
@@ -91,7 +125,7 @@ export default function MessagesPage() {
         },
         body: JSON.stringify({
           conversationId, // This param is not used by the current backend send route but kept for consistency
-          recipientId: conversations.find(conv => conv.id === conversationId)?.participants.find(p => p.id !== currentUser.id)?.id,
+          recipientId: conversations.find(conv => conv.id === conversationId)?.participants.find(p => p.id !== (currentUser?.id || ""))?.id,
           encryptedMessage,
           originalMessage, // Send original message for server-side moderation
         }),
@@ -99,7 +133,6 @@ export default function MessagesPage() {
 
       const data = await response.json();
       if (!response.ok) {
-        // Handle server-side abuse detection warnings/errors
         alert(`Message sending failed: ${data.error}`);
         console.error("Message send API error:", data.error);
       } else {
@@ -116,6 +149,34 @@ export default function MessagesPage() {
     console.log("Reporting abuse:", { conversationId, messageId, reason })
     // In real app, this would call the abuse reporting API
     alert(`Reporting message ${messageId} for reason: ${reason}. (Action mocked)`);
+  }
+
+  if (loadingCurrentUser) {
+    return (
+      <div className="min-h-screen relative flex items-center justify-center">
+        <GlitterBackground />
+        <p className="relative z-10 text-xl text-gray-700 dark:text-gray-300">Loading user data...</p>
+      </div>
+    );
+  }
+
+  if (errorCurrentUser) {
+    return (
+      <div className="min-h-screen relative flex items-center justify-center">
+        <GlitterBackground />
+        <p className="relative z-10 text-xl text-red-500">{errorCurrentUser}</p>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    // This case should ideally not be hit if errorCurrentUser is handled
+    return (
+      <div className="min-h-screen relative flex items-center justify-center">
+        <GlitterBackground />
+        <p className="relative z-10 text-xl text-red-500">Authentication failed. Please log in.</p>
+      </div>
+    );
   }
 
   if (loading) {
@@ -147,19 +208,29 @@ export default function MessagesPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Link
-                  href="/photographer/dashboard"
-                  className="inline-flex items-center text-green-600 hover:text-green-800"
+                  href={currentUser.userType === 'client' ? "/client/dashboard" : "/photographer/dashboard"}
+                  className={`inline-flex items-center ${currentUser.userType === 'client' ? 'text-blue-600 hover:text-blue-800' : 'text-green-600 hover:text-green-800'}`}
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Dashboard
                 </Link>
               </div>
               <div className="flex items-center space-x-2">
-                <Camera className="h-5 w-5 text-green-600" />
-                <span className="font-semibold">ClickHire</span>
-                <Badge variant="secondary" className="bg-green-100 text-green-800">
-                  Photographer
+                <Camera className={`h-5 w-5 ${currentUser.userType === 'client' ? 'text-blue-600' : 'text-green-600'}`} />
+                <span className="font-semibold">ChromaConnect</span>
+                <Badge variant="secondary" className={`${currentUser.userType === 'client' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                  {currentUser.userType.charAt(0).toUpperCase() + currentUser.userType.slice(1)}
                 </Badge>
+                {/* Current User Avatar in header */}
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={currentUser.avatar || "/placeholder.svg"} />
+                  <AvatarFallback>
+                    {currentUser.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
+                  </AvatarFallback>
+                </Avatar>
               </div>
             </div>
           </div>
@@ -172,14 +243,19 @@ export default function MessagesPage() {
               <p className="text-gray-600">Secure, end-to-end encrypted messaging with automatic content moderation</p>
             </div>
 
-            <MessageInterface
-              currentUserId={currentUser.id}
-              currentUserName={currentUser.name}
-              currentUserType={currentUser.userType}
-              conversations={conversations} // Pass fetched conversations
-              onSendMessage={handleSendMessage}
-              onReportAbuse={handleReportAbuse}
-            />
+            {currentUser.id && currentUser.name && currentUser.userType ? (
+              <MessageInterface
+                currentUserId={currentUser.id}
+                currentUserName={currentUser.name}
+                currentUserType={currentUser.userType}
+                conversations={conversations}
+                onSendMessage={handleSendMessage}
+                onReportAbuse={handleReportAbuse}
+              />
+            ) : (
+              <p className="text-center text-red-500">Error: Current user data is missing for messaging.</p>
+            )}
+
 
             {/* Security Notice */}
             <div className="mt-6 p-4 bg-blue-50 rounded-lg">

@@ -14,7 +14,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-
+import {
+  AlertDialog, // New Import
+  AlertDialogAction, // New Import
+  AlertDialogCancel, // New Import
+  AlertDialogContent, // New Import
+  AlertDialogDescription, // New Import
+  AlertDialogFooter, // New Import
+  AlertDialogHeader, // New Import
+  AlertDialogTitle, // New Import
+} from "@/components/ui/alert-dialog" // New Import
 
 interface Job {
   id: string;
@@ -65,6 +74,11 @@ export default function ClientJobManagementPage() {
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewedApplications, setReviewedApplications] = useState<Set<string>>(new Set()); // Track reviewed applications
 
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false); // NEW: State for job complete confirmation modal
+  const [selectedJobForCompletion, setSelectedJobForCompletion] = useState<Job | null>(null); // NEW: Job selected for completion
+  const [isSubmittingCompletion, setIsSubmittingCompletion] = useState(false); // NEW: Loading state for job completion
+
+
   // Fetch client's posted jobs
   useEffect(() => {
     const fetchJobs = async () => {
@@ -85,7 +99,7 @@ export default function ClientJobManagementPage() {
       }
     };
     fetchJobs();
-  }, []);
+  }, [isSubmittingCompletion]); // Re-fetch jobs after completing one
 
   // Fetch applications for each job
   useEffect(() => {
@@ -235,6 +249,77 @@ export default function ClientJobManagementPage() {
     }
   };
 
+  const handleMarkAsCompleteClick = (job: Job) => { // NEW: Function to open confirmation modal
+    setSelectedJobForCompletion(job);
+    setIsCompleteModalOpen(true);
+  };
+
+  const handleSubmitCompleteJob = async () => { // NEW: Function to submit job completion
+    if (!selectedJobForCompletion) return;
+
+    setIsSubmittingCompletion(true);
+    try {
+      // Find the accepted application for this job to get the photographer ID
+      const acceptedApp = applications[selectedJobForCompletion.id]?.find(app => app.status === 'accepted');
+      if (!acceptedApp) {
+        toast({
+          title: "Cannot Complete Job",
+          description: "No accepted application found for this job, or job already completed.",
+          variant: "destructive",
+        });
+        setIsSubmittingCompletion(false);
+        setIsCompleteModalOpen(false);
+        return;
+      }
+
+      const response = await fetch("/api/jobs", { // Using the updated /api/jobs PUT endpoint
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jobId: selectedJobForCompletion.id,
+          newStatus: "completed",
+          photographerId: acceptedApp.photographerId, // Pass photographer ID for notification
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Job Completed!",
+          description: data.message,
+          variant: "default",
+        });
+        // Update local jobs state
+        setJobs(prevJobs =>
+          prevJobs.map(job =>
+            job.id === selectedJobForCompletion.id ? { ...job, status: "completed" } : job
+          )
+        );
+        setIsCompleteModalOpen(false);
+        setSelectedJobForCompletion(null);
+      } else {
+        toast({
+          title: "Job Completion Failed",
+          description: data.error || "There was an issue marking the job as complete.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error marking job as complete:", error);
+      toast({
+        title: "Network Error",
+        description: "Could not mark job as complete. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingCompletion(false);
+    }
+  };
+
+
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
       <Star
@@ -310,8 +395,13 @@ export default function ClientJobManagementPage() {
                         <MapPin className="h-4 w-4 mr-1" /> {job.location}
                       </CardDescription>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {job.status}
+                    <Badge variant="secondary" className={`text-xs ${
+                        job.status === 'open' ? 'bg-blue-100 text-blue-800' :
+                        job.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                        job.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        'bg-red-100 text-red-800'
+                    }`}>
+                      {job.status.replace(/_/g, ' ').charAt(0).toUpperCase() + job.status.replace(/_/g, ' ').slice(1)}
                     </Badge>
                   </div>
                   <div className="flex justify-between items-center mt-2">
@@ -383,7 +473,7 @@ export default function ClientJobManagementPage() {
                           <p className="text-xs text-gray-500 mb-3">Applied on: {app.appliedAt}</p>
 
                           <div className="flex space-x-2">
-                            {app.status === 'pending' && (
+                            {job.status === 'open' && app.status === 'pending' && ( // Only show accept/reject if job is open and app is pending
                               <>
                                 <Button
                                   size="sm"
@@ -406,7 +496,18 @@ export default function ClientJobManagementPage() {
                                 </Button>
                               </>
                             )}
-                            {app.status === 'accepted' && !reviewedApplications.has(app.id) && (
+                            {job.status === 'in_progress' && app.status === 'accepted' && !reviewedApplications.has(app.id) && ( // Show complete & review if in progress
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="bg-purple-600 text-white hover:bg-purple-700" // New color for complete
+                                    onClick={() => handleMarkAsCompleteClick(job)} // NEW: Mark as Complete button
+                                    disabled={isSubmittingCompletion}
+                                >
+                                    Mark as Complete <CheckCircle className="ml-1 h-4 w-4" />
+                                </Button>
+                            )}
+                            {job.status === 'completed' && app.status === 'accepted' && !reviewedApplications.has(app.id) && (
                                 <Button
                                     size="sm"
                                     variant="secondary"
@@ -443,11 +544,7 @@ export default function ClientJobManagementPage() {
         </div>
       </div>
 
-      {/* Apply Job Modal (Existing) */}
-      {/* ... (keep existing Apply Job Modal code) ... */}
-
-
-      {/* Review Submission Modal */}
+      {/* Review Submission Modal (Existing) */}
       {selectedApplicationForReview && (
         <Dialog open={isReviewModalOpen} onOpenChange={setIsReviewModalOpen}>
           <DialogContent className="sm:max-w-[425px]">
@@ -487,6 +584,25 @@ export default function ClientJobManagementPage() {
         </Dialog>
       )}
 
+      {/* NEW: Job Completion Confirmation Modal */}
+      {selectedJobForCompletion && (
+        <AlertDialog open={isCompleteModalOpen} onOpenChange={setIsCompleteModalOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Mark Job as Complete?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to mark "<strong>{selectedJobForCompletion.title}</strong>" as complete? This action cannot be undone. This will also prompt the photographer to leave a review.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isSubmittingCompletion}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleSubmitCompleteJob} disabled={isSubmittingCompletion}>
+                {isSubmittingCompletion ? "Completing..." : "Confirm Complete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   )
 }
