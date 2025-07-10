@@ -1,4 +1,4 @@
-// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/photographer/dashboard/page.tsx
+// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5d693145d19c7114/app/photographer/dashboard/page.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -87,7 +87,7 @@ export default function PhotographerDashboard() {
   const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set())
 
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
-  const [loadingStats, setLoadingStats] = useState(true);
+  const [loadingStats, setLoadingStats] = true;
   const [errorStats, setErrorStats] = useState<string | null>(null);
 
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -408,7 +408,7 @@ export default function PhotographerDashboard() {
                     <Bookmark className="h-4 w-4 mr-2" /> Saved Jobs
                   </Button>
                 </Link>
-                <Link href="/photographer/profile"> {/* Link to photographer's own profile page */}
+                <Link href="/settings"> {/* Changed link to /settings */}
                     <Button variant="outline">Settings</Button>
                 </Link>
                 <Link href="/photographer/profile"> {/* Make Avatar clickable to profile */}

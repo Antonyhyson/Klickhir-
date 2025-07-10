@@ -113,9 +113,9 @@ export default function ClientDashboard() {
           avatar: p.profile_image_url || "/placeholder.svg?height=60&width=60",
           featured: p.featured || false,
           verified: p.is_verified || false,
-          connections: p.connections || Math.floor(Math.random() * 2000),
-          projects: p.projects || Math.floor(Math.random() * 100),
-          posts: p.posts || Math.floor(Math.random() * 200),
+          connections: Math.floor(Math.random() * 2000),
+          projects: Math.floor(Math.random() * 100),
+          posts: Math.floor(Math.random() * 200),
         }));
         setPhotographers(mappedPhotographers)
       } catch (e: any) {
@@ -214,6 +214,9 @@ export default function ClientDashboard() {
                   <Button variant="outline" className="refined-button-secondary font-light">
                     <Bookmark className="h-4 w-4 mr-2" /> Saved Photographers
                   </Button>
+                </Link>
+                <Link href="/settings"> {/* Changed link to /settings */}
+                  <Button variant="outline">Settings</Button>
                 </Link>
                 <div className="relative">
                   <Avatar className="ring-1 ring-slate-300 dark:ring-slate-600">

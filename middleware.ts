@@ -3,8 +3,6 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { verifyToken } from "@/lib/auth" // Import verifyToken from lib/auth
 
-// Remove the duplicated verifySimpleToken function from here
-
 export function middleware(request: NextRequest) {
   // Check if the request is for a protected route
   const protectedRoutes = [
@@ -13,8 +11,11 @@ export function middleware(request: NextRequest) {
     "/client/post-job",
     "/photographer/post-work",
     "/photographer/profile",
-    "/messages", // Added messages route to protected
-    "/client/photographer/", // Protect individual photographer profiles for clients
+    "/messages",
+    "/client/photographer/",
+    "/client/saved-photographers", // NEW: Protected route
+    "/photographer/saved-jobs", // NEW: Protected route
+    "/settings", // NEW: Protected route
   ]
   const isProtectedRoute = protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route))
 
@@ -26,8 +27,7 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/login", request.url))
     }
 
-    // Use the centralized verifyToken function
-    const decoded = verifyToken(token) //
+    const decoded = verifyToken(token)
     if (!decoded) {
       // Redirect to login if token is invalid or expired
       return NextResponse.redirect(new URL("/login", request.url))
@@ -58,5 +58,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/client/:path*", "/photographer/:path*", "/messages/:path*"],
+  matcher: ["/client/:path*", "/photographer/:path*", "/messages/:path*", "/settings", "/api/users/me/password"], // Added /settings and /api/users/me/password
 }

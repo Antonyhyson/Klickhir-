@@ -178,3 +178,45 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
+// NEW: DELETE /api/users/me - Delete authenticated user's account
+export async function DELETE(request: NextRequest) {
+  try {
+    const cookieStore = cookies();
+    const token = cookieStore.get("auth-token")?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
+    const userId = decoded.userId;
+
+    // Perform the deletion. Due to ON DELETE CASCADE on foreign keys
+    // in photographer_profiles, client_profiles, jobs, job_applications,
+    // portfolio_posts, reviews, messages, notifications, user_violations,
+    // conversation_keys, abuse_reports, saved_photographers, and saved_jobs,
+    // all related data will be automatically deleted or set to NULL.
+    const [deletedUser] = await sql`
+      DELETE FROM users
+      WHERE id = ${userId}
+      RETURNING id;
+    `;
+
+    if (deletedUser) {
+      // Invalidate the auth token cookie
+      cookies().delete("auth-token");
+      return NextResponse.json({ message: "Account deleted successfully" }, { status: 200 });
+    } else {
+      return NextResponse.json({ error: "Account not found or could not be deleted" }, { status: 404 });
+    }
+
+  } catch (error) {
+    console.error("Delete user account API error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
