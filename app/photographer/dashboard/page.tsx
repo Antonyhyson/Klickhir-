@@ -87,7 +87,7 @@ export default function PhotographerDashboard() {
   const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set())
 
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
-  const [loadingStats, setLoadingStats] = true;
+  const [loadingStats, setLoadingStats] = useState(true); // CORRECTED LINE
   const [errorStats, setErrorStats] = useState<string | null>(null);
 
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
