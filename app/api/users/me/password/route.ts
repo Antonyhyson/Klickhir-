@@ -1,4 +1,4 @@
-// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5d693145d19c7114/app/api/users/me/password/route.ts
+// antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5d693145d19c7114/app/api/users/me/password/route.ts
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { cookies } from "next/headers";

@@ -1,4 +1,4 @@
-// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/forgot-password/page.tsx
+// antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/forgot-password/page.tsx
 "use client"
 
 import { useState } from "react"

@@ -1,4 +1,4 @@
-// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/page.tsx
+// antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/page.tsx
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,7 +20,7 @@ export default function HomePage() {
               <div className="verification-dot absolute -top-1 -right-1"></div>
             </div>
             <span className="text-2xl font-light tracking-wide bg-gradient-to-r from-slate-800 via-slate-600 to-slate-800 bg-clip-text text-transparent dark:from-white dark:via-slate-300 dark:to-white">
-              ClickHire
+              Klickhiré
             </span>
           </div>
           <div className="flex items-center space-x-4">
@@ -44,7 +44,7 @@ export default function HomePage() {
       <section className="hero-section sandstorm-container py-32 relative flex items-center justify-center min-h-[calc(100vh-65px)]">
         <SandstormBackground />
         <div className="container mx-auto px-4 text-center relative z-10 animate-fade-in-up">
-          <h1 className="hero-title mb-8 animate-slide-in-left">ClickHire</h1>
+          <h1 className="hero-title mb-8 animate-slide-in-left">Klickhiré</h1>
           <p className="hero-subtitle mb-16 max-w-4xl mx-auto animate-slide-in-right">
             Connect with exceptional photographers worldwide. Experience seamless collaboration, verified professionals,
             and unparalleled creative excellence.
@@ -126,7 +126,7 @@ export default function HomePage() {
       <section className="bg-gradient-to-b from-slate-50/50 to-white py-24 relative z-10 dark:from-slate-900/50 dark:to-slate-800 amoled:from-black/50 amoled:to-black">
         <div className="container mx-auto px-4">
           <div className="text-center mb-20">
-            <h2 className="text-4xl font-light mb-6 text-slate-800 dark:text-white animate-fade-in-up">Why Choose ClickHire?</h2>
+            <h2 className="text-4xl font-light mb-6 text-slate-800 dark:text-white animate-fade-in-up">Why Choose Klickhiré?</h2>
             <p className="text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto font-light leading-relaxed animate-fade-in-up-delay">
               Experience the future of creative collaboration with our sophisticated platform designed for professionals
             </p>
@@ -177,7 +177,7 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-center space-x-3 mb-8">
             <Camera className="h-6 w-6 text-slate-400" />
-            <span className="text-2xl font-light tracking-wide text-white">ClickHire</span>
+            <span className="text-2xl font-light tracking-wide text-white">Klickhiré</span>
             <div className="verification-dot"></div>
           </div>
           <p className="text-center text-slate-400 max-w-2xl mx-auto font-light leading-relaxed">

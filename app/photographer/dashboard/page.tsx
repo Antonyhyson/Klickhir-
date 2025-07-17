@@ -1,4 +1,4 @@
-// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5d693145d19c7114/app/photographer/dashboard/page.tsx
+// antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5d693145d19c7114/app/photographer/dashboard/page.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -392,7 +392,7 @@ export default function PhotographerDashboard() {
             <div className="flex items-center justify-between">
               <Link href="/" className="flex items-center space-x-2">
                 <Camera className="h-6 w-6 text-green-600" />
-                <span className="text-xl font-bold">ChromaConnect</span>
+                <span className="text-xl font-bold">Klickhiré</span>
                 <Badge variant="secondary" className="bg-green-100 text-green-800">
                   Photographer
                 </Badge>
@@ -424,7 +424,7 @@ export default function PhotographerDashboard() {
                             <AvatarImage src={currentUserProfile?.profile_image_url || "/placeholder.svg?height=32&width=32"} />
                         )}
                         <AvatarFallback>
-                            {currentUserProfile ? `${currentUserProfile.first_name[0]}${currentUserProfile.last_name[0]}` : 'SP'}
+                            {currentUserProfile ? `${currentUserProfile.first_name[0]}${currentUserProfile.first_name[0]}` : 'SP'}
                         </AvatarFallback>
                     </Avatar>
                 </Link>

@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     if (mfaMethod === "authenticator") {
       const secret = speakeasy.generateSecret({
         length: 20, // Length of the secret key
-        name: `ClickHire (${email})`, // Issuer name
+        name: `Klickhiré (${email})`, // Issuer name
         // For production, you might want to specify an algorithm like 'sha512'
         // But most authenticator apps default to SHA1 for TOTP
       })

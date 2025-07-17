@@ -1,4 +1,4 @@
-// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/login/page.tsx
+// antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/login/page.tsx
 "use client"
 
 import type React from "react"
@@ -162,7 +162,7 @@ export default function LoginPage() {
         <Card className="bg-white/95 backdrop-blur-sm">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Welcome Back</CardTitle>
-            <CardDescription>Sign in to your ChromaConnect account</CardDescription>
+            <CardDescription>Sign in to your Klickhiré account</CardDescription>
           </CardHeader>
 
           <CardContent>

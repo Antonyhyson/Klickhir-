@@ -1,4 +1,4 @@
-// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/messages/page.tsx
+// antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/messages/page.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -217,7 +217,7 @@ export default function MessagesPage() {
               </div>
               <div className="flex items-center space-x-2">
                 <Camera className={`h-5 w-5 ${currentUser.userType === 'client' ? 'text-blue-600' : 'text-green-600'}`} />
-                <span className="font-semibold">ChromaConnect</span>
+                <span className="font-semibold">Klickhiré</span>
                 <Badge variant="secondary" className={`${currentUser.userType === 'client' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
                   {currentUser.userType.charAt(0).toUpperCase() + currentUser.userType.slice(1)}
                 </Badge>

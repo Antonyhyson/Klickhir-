@@ -1,4 +1,4 @@
-// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/client/dashboard/components/dashboard-header.tsx
+// antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/client/dashboard/components/dashboard-header.tsx
 "use client"
 
 import { useState, useEffect } from "react" // Import useEffect, useState
@@ -118,7 +118,7 @@ export function DashboardHeader() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-gray-900">ClickHire</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Klickhiré</h1>
             <div className="hidden md:block">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />

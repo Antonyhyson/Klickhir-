@@ -1,4 +1,4 @@
-// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/api/upload/image/route.ts
+// antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/api/upload/image/route.ts
 import { type NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from 'uuid'; // Import uuid for unique filenames
 

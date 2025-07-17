@@ -1,4 +1,4 @@
-// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/photographer/saved-jobs/page.tsx
+// antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/photographer/saved-jobs/page.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -89,9 +89,9 @@ export default function SavedJobsPage() {
         <header className="bg-white/95 backdrop-blur-sm border-b">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
-              <Link href="/photographer/dashboard" className="flex items-center space-x-2">
+            <Link href="/photographer/dashboard" className="flex items-center space-x-2">
                 <Camera className="h-6 w-6 text-green-600" />
-                <span className="text-xl font-bold">ChromaConnect</span>
+                <span className="text-xl font-bold">Klickhiré</span>
                 <Badge variant="secondary" className="bg-green-100 text-green-800">
                   Photographer
                 </Badge>

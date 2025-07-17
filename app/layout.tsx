@@ -7,7 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "ClickHire - Professional Photography Platform",
+  title: "Klickhiré - Professional Photography Platform",
   description: "Connect with professional photographers worldwide",
     generator: 'v0.dev'
 }

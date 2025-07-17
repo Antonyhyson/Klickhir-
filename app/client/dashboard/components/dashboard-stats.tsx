@@ -1,4 +1,4 @@
-// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/client/dashboard/components/dashboard-stats.tsx
+// antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/client/dashboard/components/dashboard-stats.tsx
 "use client" // Added "use client" directive
 
 import { useState, useEffect } from "react" // Import useEffect

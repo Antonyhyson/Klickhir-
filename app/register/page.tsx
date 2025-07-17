@@ -153,7 +153,7 @@ export default function RegisterPage() {
           <Card className="bg-white/95 backdrop-blur-sm w-full max-w-md">
             <CardHeader className="text-center">
               <CardTitle>Choose Your Role</CardTitle>
-              <CardDescription>Select how you want to use ClickHire</CardDescription>
+              <CardDescription>Select how you want to use Klickhiré</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Button
@@ -189,7 +189,7 @@ export default function RegisterPage() {
               <CardTitle className="text-2xl">Registration Successful!</CardTitle>
               <CardDescription>
                 {formData.mfaMethod === "authenticator"
-                  ? "Your account has been created. Please set up your Authenticator App for secure login."
+                  ? "Your account has been created. Please set up your Authenticator App for secure Klickhiré login."
                   : "Your account has been created. Please proceed to login."}
               </CardDescription>
             </CardHeader>
@@ -248,7 +248,7 @@ export default function RegisterPage() {
               <CardTitle className="text-2xl">
                 Register as {userType === "client" ? "Client" : "Photographer"}
               </CardTitle>
-              <CardDescription>Create your account to get started with ClickHire</CardDescription>
+              <CardDescription>Create your account to get started with Klickhiré</CardDescription>
             </CardHeader>
 
             <CardContent>

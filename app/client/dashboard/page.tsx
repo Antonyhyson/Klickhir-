@@ -1,4 +1,4 @@
-// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/client/dashboard/page.tsx
+// antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/client/dashboard/page.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -193,7 +193,7 @@ export default function ClientDashboard() {
                   <div className="verification-dot absolute -top-1 -right-1"></div>
                 </div>
                 <span className="text-xl font-light tracking-wide bg-gradient-to-r from-slate-800 via-slate-600 to-slate-800 bg-clip-text text-transparent dark:from-white dark:via-slate-300 dark:to-white">
-                  ChromaConnect
+                Klickhiré
                 </span>
                 <Badge
                   variant="secondary"

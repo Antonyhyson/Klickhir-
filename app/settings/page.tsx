@@ -1,4 +1,4 @@
-// antonyhyson/clickhire/ClickHire-bc73fc2893e84ce2bf95362a5d693145d19c7114/app/settings/page.tsx
+// antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5d693145d19c7114/app/settings/page.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -246,7 +246,7 @@ export default function SettingsPage() {
               </Link>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-xl font-bold">ChromaConnect</span>
+              <span className="text-xl font-bold">Klickhiré</span>
               <Button onClick={handleLogout} variant="outline" size="sm">
                 <LogOut className="h-4 w-4 mr-2" /> Logout
               </Button>
