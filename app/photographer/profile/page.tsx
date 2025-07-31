@@ -1,7 +1,7 @@
 // antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/photographer/profile/page.tsx
 "use client"
 
-import { useState, useEffect } => "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
