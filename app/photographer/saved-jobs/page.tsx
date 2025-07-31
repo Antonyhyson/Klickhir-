@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, MapPin, DollarSign, Clock, Users, Camera, Star, Briefcase, Bookmark, BookmarkCheck, Loader2 } from "lucide-react"
 import { GlitterBackground } from "@/components/glitter-background"
 import { toast } from "@/hooks/use-toast"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface Job {
   id: string;
