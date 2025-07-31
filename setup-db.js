@@ -1,10 +1,13 @@
-const { sql } = require('./lib/db');
+// D:\Project\ClickHire\setup-db.js
 const fs = require('fs');
 const path = require('path');
 
 async function setupDatabase() {
   try {
     console.log('Setting up database...');
+    
+    // Dynamically import the database module after the build
+    const { sql } = await import('./lib/db.js');
     
     // Read and execute the SQL files in order
     const sqlFiles = [
@@ -34,4 +37,4 @@ async function setupDatabase() {
   }
 }
 
-setupDatabase(); 
+setupDatabase();
