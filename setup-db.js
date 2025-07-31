@@ -1,5 +1,5 @@
 // D:\Project\ClickHire\setup-db.mjs
-import { sql } from './lib/db.js';
+import { sql } from './lib/db.ts';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
