@@ -1,5 +1,5 @@
 // D:\Project\ClickHire\setup-db.mjs
-import { sql } from './lib/db.js'; // Note the .js extension for direct import
+import { sql } from './lib/db.ts'; // Note the .js extension for direct import
 import fs from 'fs';
 import path from 'path';
 
