@@ -1,14 +1,17 @@
 // D:\Project\ClickHire\setup-db.mjs
-import { sql } from './lib/db.ts'; // Note the .js extension for direct import
+import { sql } from './lib/db.js';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+// A helper function to replicate __dirname in ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function setupDatabase() {
   try {
     console.log('Setting up database...');
-
-    const __dirname = path.dirname(new URL(import.meta.url).pathname);
-
+    
     // Read and execute the SQL files in order
     const sqlFiles = [
       'scripts/001-create-tables.sql',
@@ -19,17 +22,17 @@ async function setupDatabase() {
     for (const file of sqlFiles) {
       console.log(`Executing ${file}...`);
       const sqlContent = fs.readFileSync(path.join(__dirname, file), 'utf8');
-
+      
       // Split by semicolon and execute each statement
       const statements = sqlContent.split(';').filter(stmt => stmt.trim());
-
+      
       for (const statement of statements) {
         if (statement.trim()) {
           await sql.unsafe(statement);
         }
       }
     }
-
+    
     console.log('Database setup completed successfully!');
   } catch (error) {
     console.error('Database setup failed:', error);
