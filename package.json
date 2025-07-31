@@ -7,7 +7,7 @@
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
-    "postbuild": "node ./node_modules/.bin/jiti setup-db.js"
+    "postbuild": "nnode setup-db.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
