@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Star, MapPin, Camera, Clock, DollarSign, Users, Briefcase, TrendingUp, Send, Loader2, Filter, X, Calendar as CalendarIcon, Bookmark, BookmarkCheck } from "lucide-react" // Added Bookmark, BookmarkCheck
+import { Star, MapPin, Camera, Clock, DollarSign, Users, Briefcase, TrendingUp, Send, Loader2, Filter, X, Calendar as CalendarIcon, Bookmark, BookmarkCheck, Globe } from "lucide-react" // Added Globe icon
 import { GlitterBackground } from "@/components/glitter-background"
 import Link from "next/link"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
@@ -45,6 +45,17 @@ interface Job {
   is_featured?: boolean;
 }
 
+interface ExternalGig {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  description: string;
+  date: string;
+  pay: string;
+  link: string;
+}
+
 interface DashboardStats {
   activeJobs: number;
   rating: string;
@@ -74,10 +85,13 @@ export default function PhotographerDashboard() {
   const [activeTab, setActiveTab] = useState("nearby")
   const [nearbyJobs, setNearbyJobs] = useState<Job[]>([])
   const [collaborationJobs, setCollaborationJobs] = useState<Job[]>([])
+  const [externalGigs, setExternalGigs] = useState<ExternalGig[]>([])
   const [loadingNearby, setLoadingNearby] = useState(true)
   const [loadingCollaboration, setLoadingCollaboration] = useState(true)
+  const [loadingExternalGigs, setLoadingExternalGigs] = useState(false)
   const [errorNearby, setErrorNearby] = useState<string | null>(null)
   const [errorCollaboration, setErrorCollaboration] = useState<string | null>(null)
+  const [errorExternalGigs, setErrorExternalGigs] = useState<string | null>(null)
 
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false)
   const [selectedJobToApply, setSelectedJobToApply] = useState<Job | null>(null)
@@ -87,7 +101,7 @@ export default function PhotographerDashboard() {
   const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set())
 
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
-  const [loadingStats, setLoadingStats] = useState(true); // CORRECTED LINE
+  const [loadingStats, setLoadingStats] = useState(true);
   const [errorStats, setErrorStats] = useState<string | null>(null);
 
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -113,7 +127,7 @@ export default function PhotographerDashboard() {
   const [loadingUserProfile, setLoadingUserProfile] = useState(true);
   const [errorUserProfile, setErrorUserProfile] = useState<string | null>(null);
 
-  const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set()); // NEW: State to track saved jobs
+  const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
 
 
   // Fetch current user's profile for the header avatar/links
@@ -249,7 +263,36 @@ export default function PhotographerDashboard() {
     fetchJobs(true);
     fetchSavedJobs(); // Fetch saved jobs on mount and filter changes
   }, [appliedFilters.type, appliedFilters.minBudget, appliedFilters.maxBudget, appliedFilters.urgency, appliedFilters.minDate, appliedFilters.maxDate, appliedFilters.minClientRating]);
+  
+  // NEW: Fetch external gigs when "external" tab is active
+  useEffect(() => {
+    const fetchExternalGigs = async () => {
+      if (activeTab !== "external-gigs") return;
 
+      setLoadingExternalGigs(true);
+      setErrorExternalGigs(null);
+      try {
+        // Assume user's location is available from currentUserProfile for the query
+        const queryParams = new URLSearchParams({
+          location: currentUserProfile?.location_country || "global",
+        });
+        const response = await fetch(`/api/gigs?${queryParams.toString()}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setExternalGigs(data.gigs);
+      } catch (e: any) {
+        console.error("Failed to fetch external gigs:", e);
+        setErrorExternalGigs("Failed to load external gigs. Please try again later.");
+      } finally {
+        setLoadingExternalGigs(false);
+      }
+    };
+    if (activeTab === "external-gigs" && currentUserProfile) {
+      fetchExternalGigs();
+    }
+  }, [activeTab, currentUserProfile]);
 
   const handleApplyClick = (job: Job) => {
     setSelectedJobToApply(job);
@@ -401,6 +444,10 @@ export default function PhotographerDashboard() {
                 <Link href="/photographer/post-work">
                   <Button variant="outline">Share Work</Button>
                 </Link>
+                {/* NEW: Added link to post a job */}
+                <Link href="/photographer/post-job">
+                  <Button className="bg-green-600 hover:bg-green-700">Post a Job</Button>
+                </Link>
                 <Link href="/photographer/portfolio">
                   <Button variant="outline">My Portfolio</Button>
                 </Link>
@@ -516,9 +563,10 @@ export default function PhotographerDashboard() {
 
           {/* Main Content */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="nearby">Nearby Work</TabsTrigger>
               <TabsTrigger value="collaboration">Collaboration Opportunities</TabsTrigger>
+              <TabsTrigger value="external-gigs">External Gigs</TabsTrigger>
             </TabsList>
 
             <TabsContent value="nearby" className="mt-6">
@@ -760,6 +808,73 @@ export default function PhotographerDashboard() {
                       </CardContent>
                     </Card>
                   )})}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* NEW: External Gigs Tab */}
+            <TabsContent value="external-gigs" className="mt-6">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-semibold">External Gigs</h2>
+                  <Button variant="outline" onClick={() => window.open("https://www.google.com/search?q=photography+gigs+near+me", "_blank")}>
+                    <Globe className="mr-2 h-4 w-4" /> Search Online
+                  </Button>
+                </div>
+                <p className="text-sm text-gray-600">
+                  We've found these gigs on external platforms for you.
+                  (This is a mock for a future web scraping feature.)
+                </p>
+
+                {loadingExternalGigs && <p className="text-center text-gray-500">Searching for gigs...</p>}
+                {errorExternalGigs && <p className="text-center text-red-500">{errorExternalGigs}</p>}
+
+                {!loadingExternalGigs && !errorExternalGigs && externalGigs.length === 0 && (
+                  <p className="text-center text-gray-500">No external gigs found in your area at the moment.</p>
+                )}
+
+                <div className="grid gap-6">
+                  {!loadingExternalGigs && externalGigs.map((gig) => (
+                    <Card key={gig.id} className="hover:shadow-lg transition-shadow">
+                      <CardHeader className="pb-4">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-2">
+                            <CardTitle className="text-xl">{gig.title}</CardTitle>
+                            <CardDescription className="flex items-center space-x-2">
+                              <span>by {gig.company}</span>
+                            </CardDescription>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-gray-800">
+                              {gig.pay}
+                            </p>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <p className="text-gray-700">{gig.description}</p>
+
+                        <div className="flex items-center space-x-4 text-sm text-gray-600">
+                          <div className="flex items-center">
+                            <MapPin className="h-4 w-4 mr-1" />
+                            <span>{gig.location}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <Clock className="h-4 w-4 mr-1" />
+                            <span>{gig.date}</span>
+                          </div>
+                        </div>
+
+                        <div className="pt-2">
+                          <a href={gig.link} target="_blank" rel="noopener noreferrer">
+                            <Button className="w-full">
+                              Apply on External Site
+                            </Button>
+                          </a>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               </div>
             </TabsContent>

@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, Star, MapPin, Share, Phone, MessageCircle, Bookmark, MoreHorizontal, CheckCircle, XCircle, Heart } from "lucide-react" // Added Heart for posts
 import { GlitterBackground } from "@/components/glitter-background"
 import { Badge } from "@/components/ui/badge" // Import Badge
+import { InstagramSync } from "@/components/photographer/instagram-sync" // NEW: Import the new component
 
 // Removed mock workPosts
 // const workPosts = [...]
@@ -323,6 +324,25 @@ export default function PhotographerProfile() {
       }))
     }
   }
+
+  // Handler for photos selected from InstagramSync component
+  const handleInstagramPhotosSelect = (photos: { url: string }[]) => {
+    // Add the selected Instagram photo URLs to the portfolio's images
+    setProfilePosts((prevPosts) => [
+        ...prevPosts,
+        ...photos.map(photo => ({
+            id: `ig_${photo.url}`, // Create a unique ID for the post
+            project_name: "Instagram Post",
+            description: photo.caption || "",
+            location: photographer?.location || "",
+            project_date: new Date().toISOString(),
+            images: [photo.url],
+            likes: 0,
+            comments: 0,
+            shares: 0,
+        }))
+    ]);
+  };
 
 
   if (loading) {
@@ -640,6 +660,17 @@ export default function PhotographerProfile() {
               </div>
             </div>
           </div>
+          
+          {/* NEW: Instagram Sync Section for Editing */}
+          {isEditing && (
+              <div className="mb-8">
+                  <InstagramSync
+                    onPhotosSelect={handleInstagramPhotosSelect}
+                    isSubmitting={isSaving}
+                    portfolioImages={profilePosts.flatMap(post => post.images)}
+                  />
+              </div>
+          )}
 
           {/* Instagram-style Feed (real posts now) */}
           <div className="space-y-8">

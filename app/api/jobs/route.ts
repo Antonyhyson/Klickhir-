@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/jobs - Create a new job (clients only)
+// POST /api/jobs - Create a new job (clients and photographers)
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = cookies()
@@ -97,8 +97,9 @@ export async function POST(request: NextRequest) {
     }
 
     const decoded = verifyToken(token)
-    if (!decoded || decoded.userType !== "client") {
-      return NextResponse.json({ error: "Only clients can post jobs" }, { status: 403 })
+    // Updated line: allow both 'client' and 'photographer' to post jobs
+    if (!decoded || !["client", "photographer"].includes(decoded.userType)) {
+        return NextResponse.json({ error: "Only clients or photographers can post jobs" }, { status: 403 })
     }
 
     const body = await request.json()
@@ -215,7 +216,7 @@ export async function PUT(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error("Update job status API error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("Update job status API error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

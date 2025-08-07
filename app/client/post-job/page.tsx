@@ -1,4 +1,4 @@
-// antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/client/post-job/page.tsx
+// antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/photographer/post-job/page.tsx
 "use client"
 
 import type React from "react"
@@ -12,10 +12,9 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Camera, MapPin, Clock, DollarSign, CheckCircle, XCircle } from "lucide-react" // Added CheckCircle, XCircle
+import { ArrowLeft, Camera, MapPin, Clock, DollarSign, CheckCircle, XCircle } from "lucide-react"
 import { GlitterBackground } from "@/components/glitter-background"
-import { toast } from "@/hooks/use-toast" // Import toast
-
+import { toast } from "@/hooks/use-toast"
 
 const photographyTypes = [
   "Wedding Photography",
@@ -121,7 +120,7 @@ export default function PostJobPage() {
 
         // Redirect after a short delay
         setTimeout(() => {
-          window.location.href = "/client/jobs" // Redirect to the client's job management page
+          window.location.href = "/photographer/dashboard" // Redirect to the photographer's dashboard
         }, 3000)
       } else {
         setSubmissionStatus("error")
@@ -151,11 +150,11 @@ export default function PostJobPage() {
       <GlitterBackground />
 
       <div className="relative z-10">
-        {/* Header */}
+        {/* Header (styled for photographer) */}
         <header className="bg-white/90 backdrop-blur-sm border-b">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center space-x-2">
-              <Link href="/client/dashboard" className="inline-flex items-center text-blue-600 hover:text-blue-800">
+              <Link href="/photographer/dashboard" className="inline-flex items-center text-green-600 hover:text-green-800">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Dashboard
               </Link>
@@ -166,9 +165,9 @@ export default function PostJobPage() {
         <div className="container mx-auto px-4 py-8 max-w-2xl">
           <Card className="bg-white/95 backdrop-blur-sm">
             <CardHeader className="text-center">
-              <Camera className="h-12 w-12 text-blue-600 mx-auto mb-4" />
+              <Camera className="h-12 w-12 text-green-600 mx-auto mb-4" />
               <CardTitle className="text-2xl">Post a Photography Job</CardTitle>
-              <CardDescription>Find the perfect photographer for your project</CardDescription>
+              <CardDescription>Find a photographer to help with your project</CardDescription>
             </CardHeader>
 
             <CardContent>
@@ -192,7 +191,7 @@ export default function PostJobPage() {
                     id="title"
                     value={formData.title}
                     onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                    placeholder="e.g., Wedding Photography at Central Park"
+                    placeholder="e.g., Assistant for a commercial shoot"
                     required
                     disabled={isLoading}
                   />
@@ -311,7 +310,7 @@ export default function PostJobPage() {
                   </Label>
                 </div>
 
-                <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="bg-green-50 p-4 rounded-lg">
                   <h3 className="font-semibold mb-2">Job Summary</h3>
                   <div className="space-y-1 text-sm text-gray-600">
                     <div className="flex items-center">
@@ -329,7 +328,7 @@ export default function PostJobPage() {
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full bg-green-600 hover:bg-green-700" disabled={isLoading}>
                   {isLoading ? "Posting Job..." : "Post Job"}
                 </Button>
               </form>
