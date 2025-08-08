@@ -114,8 +114,8 @@ importers:
         specifier: 4.1.0
         version: 4.1.0
       dotenv:
-        specifier: ^17.2.1
-        version: 17.2.1
+        specifier: ^16.4.5
+        version: 16.6.1
       embla-carousel-react:
         specifier: 8.5.1
         version: 8.5.1(react@19.1.0)
@@ -186,6 +186,9 @@ importers:
       '@types/speakeasy':
         specifier: ^2.0.10
         version: 2.0.10
+      cross-env:
+        specifier: ^10.0.0
+        version: 10.0.0
       dotenv-cli:
         specifier: ^10.0.0
         version: 10.0.0
@@ -214,6 +217,9 @@ packages:
 
   '@emnapi/runtime@1.4.4':
     resolution: {integrity: sha512-hHyapA4A3gPaDCNfiqyZUStTMqIkKRshqPIuDOXv1hcBnD4U3l8cP0T1HMCfGRxQ6V64TGCcoswChANyOAwbQg==, tarball: https://registry.npmjs.org/@emnapi/runtime/-/runtime-1.4.4.tgz}
+
+  '@epic-web/invariant@1.0.0':
+    resolution: {integrity: sha512-lrTPqgvfFQtR/eY/qkIzp98OGdNJu0m5ji3q/nJI8v3SXkRKEnWiOxMmbvcSoAIzv/cGiuvRy57k4suKQSAdwA==, tarball: https://registry.npmjs.org/@epic-web/invariant/-/invariant-1.0.0.tgz}
 
   '@floating-ui/core@1.7.2':
     resolution: {integrity: sha512-wNB5ooIKHQc+Kui96jE/n69rHFWAVoxn5CAzL1Xdd8FG03cgY3MLO+GF9U3W737fYDSgPWA6MReKhBQBop6Pcw==, tarball: https://registry.npmjs.org/@floating-ui/core/-/core-1.7.2.tgz}
@@ -1450,6 +1456,11 @@ packages:
     resolution: {integrity: sha512-NOKm8xhkzAjzFx8B2v5OAHT+u5pRQc2UCa2Vq9jYL/31o2wi9mxBA7LIFs3sV5VSC49z6pEhfbMULvShKj26WA==, tarball: https://registry.npmjs.org/commander/-/commander-4.1.1.tgz}
     engines: {node: '>= 6'}
 
+  cross-env@10.0.0:
+    resolution: {integrity: sha512-aU8qlEK/nHYtVuN4p7UQgAwVljzMg8hB4YK5ThRqD2l/ziSnryncPNn7bMLt5cFYsKVKBh8HqLqyCoTupEUu7Q==, tarball: https://registry.npmjs.org/cross-env/-/cross-env-10.0.0.tgz}
+    engines: {node: '>=20'}
+    hasBin: true
+
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==, tarball: https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.6.tgz}
     engines: {node: '>= 8'}
@@ -2197,6 +2208,8 @@ snapshots:
     dependencies:
       tslib: 2.8.1
     optional: true
+
+  '@epic-web/invariant@1.0.0': {}
 
   '@floating-ui/core@1.7.2':
     dependencies:
@@ -3412,6 +3425,11 @@ snapshots:
     optional: true
 
   commander@4.1.1: {}
+
+  cross-env@10.0.0:
+    dependencies:
+      '@epic-web/invariant': 1.0.0
+      cross-spawn: 7.0.6
 
   cross-spawn@7.0.6:
     dependencies:
