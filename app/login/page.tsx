@@ -1,19 +1,19 @@
-// antonyhyson/Klickhiré/Klickhiré-bc73fc2893e84ce2bf95362a5017ca47ad2e1248/app/login/page.tsx
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Camera, Users, ArrowLeft, Shield } from "lucide-react"
+import { ArrowLeft, Shield, Mail, Building, LockKeyhole } from "lucide-react"
 import { GlitterBackground } from "@/components/glitter-background"
+import { useToast } from "@/hooks/use-toast"
+import { signIn, getSession } from "next-auth/react"
 
 export default function LoginPage() {
+  const { toast } = useToast()
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -21,19 +21,14 @@ export default function LoginPage() {
   })
   const [showMFA, setShowMFA] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [currentUserType, setCurrentUserType] = useState("")
   const [error, setError] = useState("")
   const [mfaMethod, setMfaMethod] = useState<"authenticator" | "sms" | null>(null)
-  const [mfaUserId, setMfaUserId] = useState<string | null>(null) // Store user ID for SMS request
-  const [smsRequestSent, setSmsRequestSent] = useState(false)
-  const [smsRequestLoading, setSmsRequestLoading] = useState(false)
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendCooldown, setResendCooldown] = useState(0)
 
-  const handleSubmit = async (e: React.FormEvent, userType: string) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
-    setCurrentUserType(userType)
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -44,14 +39,11 @@ export default function LoginPage() {
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
-          userType: userType,
-          mfaCode: showMFA ? formData.mfaCode : undefined, // Only send mfaCode if on MFA step
+          mfaCode: showMFA ? formData.mfaCode : undefined,
         }),
       })
 
       const responseText = await response.text()
-      console.log("Response status:", response.status)
-      console.log("Response text:", responseText)
 
       if (!response.ok) {
         let errorMessage = "Login failed"
@@ -79,14 +71,16 @@ export default function LoginPage() {
       if (data.requiresMFA) {
         setShowMFA(true)
         setMfaMethod(data.mfaMethod)
-        setMfaUserId(data.userId) // Capture user ID for SMS request
         setIsLoading(false)
       } else {
         // Login successful
-        if (userType === "client") {
+        if (data.user.userType === "client") {
           window.location.href = "/client/dashboard"
-        } else {
+        } else if (data.user.userType === "photographer") {
           window.location.href = "/photographer/dashboard"
+        } else {
+          // New: Handle case where user is registered but has no role yet
+          window.location.href = "/select-role"
         }
       }
     } catch (err) {
@@ -97,10 +91,19 @@ export default function LoginPage() {
   }
 
   const handleRequestSmsCode = async () => {
-    if (resendCooldown > 0) return; // Prevent multiple requests during cooldown
+    if (resendCooldown > 0) return
 
-    setSmsRequestLoading(true);
-    setError("");
+    setResendCooldown(60)
+    const interval = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
     try {
       const response = await fetch("/api/auth/request-sms-mfa", {
         method: "POST",
@@ -108,44 +111,54 @@ export default function LoginPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email: formData.email }),
-      });
+      })
 
-      const data = await response.json();
+      const data = await response.json()
       if (response.ok) {
-        setSmsRequestSent(true);
-        console.log("SMS code requested:", data.message);
-        setResendCooldown(60); // Start 60-second cooldown
-        const interval = setInterval(() => {
-          setResendCooldown(prev => {
-            if (prev <= 1) {
-              clearInterval(interval);
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
+        toast({
+          title: "SMS Code Sent",
+          description: data.message,
+        })
       } else {
-        setError(data.error || "Failed to request SMS code.");
+        setError(data.error || "Failed to request SMS code.")
       }
     } catch (err) {
-      console.error("Request SMS code error:", err);
-      setError("Network error. Could not request SMS code.");
-    } finally {
-      setSmsRequestLoading(false);
+      console.error("Request SMS code error:", err)
+      setError("Network error. Could not request SMS code.")
     }
-  };
-
+  }
 
   const resetForm = () => {
     setShowMFA(false)
     setFormData({ email: "", password: "", mfaCode: "" })
-    setCurrentUserType("")
     setError("")
     setMfaMethod(null)
-    setMfaUserId(null)
-    setSmsRequestSent(false)
-    setSmsRequestLoading(false)
-    setResendCooldown(0);
+    setResendCooldown(0)
+  }
+
+  const handleGoogleLogin = async () => {
+    try {
+      // Use NextAuth signIn with redirect
+      await signIn("google", {
+        callbackUrl: "/select-role?oauth=true",
+      })
+    } catch (error) {
+      console.error("Google login error:", error)
+      toast({
+        title: "Login Failed",
+        description: "There was an error signing in with Google. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleOAuthLogin = (provider: string) => {
+    // For Microsoft and SSO, show a demo message
+    toast({
+      title: "Demo Mode",
+      description: `${provider} login is not implemented in this demo. Please use Google or email/password login.`,
+      variant: "default",
+    })
   }
 
   return (
@@ -173,86 +186,78 @@ export default function LoginPage() {
             )}
 
             {!showMFA ? (
-              <Tabs defaultValue="client" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="client" className="flex items-center space-x-2">
-                    <Users className="h-4 w-4" />
-                    <span>Client</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="photographer" className="flex items-center space-x-2">
-                    <Camera className="h-4 w-4" />
-                    <span>Photographer</span>
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="client">
-                  <form onSubmit={(e) => handleSubmit(e, "client")} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="client-email">Email</Label>
-                      <Input
-                        id="client-email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
-                        required
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="client-password">Password</Label>
-                      <Input
-                        id="client-password"
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
-                        required
-                        disabled={isLoading}
-                      />
-                      <Link href="/forgot-password" className="text-sm text-blue-600 hover:underline block text-right">
-                        Forgot password?
-                      </Link>
-                    </div>
-
-                    <Button type="submit" className="w-full" disabled={isLoading}>
-                      {isLoading ? "Signing In..." : "Continue"}
-                    </Button>
-                  </form>
-                </TabsContent>
-
-                <TabsContent value="photographer">
-                  <form onSubmit={(e) => handleSubmit(e, "photographer")} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="photographer-email">Email</Label>
-                      <Input
-                        id="photographer-email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
-                        required
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="photographer-password">Password</Label>
-                      <Input
-                        id="photographer-password"
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
-                        required
-                        disabled={isLoading}
-                      />
-                      <Link href="/forgot-password" className="text-sm text-green-600 hover:underline block text-right">
-                        Forgot password?
-                      </Link>
-                    </div>
-
-                    <Button type="submit" className="w-full bg-green-600 hover:bg-green-700" disabled={isLoading}>
-                      {isLoading ? "Signing In..." : "Continue"}
-                    </Button>
-                  </form>
-                </TabsContent>
-              </Tabs>
+              <>
+                <div className="space-y-4">
+                  <Button 
+                    variant="outline" 
+                    className="w-full flex items-center space-x-2"
+                    onClick={handleGoogleLogin}
+                    type="button"
+                  >
+                    <Mail className="h-5 w-5" />
+                    <span>Sign in with Google</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full flex items-center space-x-2"
+                    onClick={() => handleOAuthLogin("Microsoft")}
+                    type="button"
+                  >
+                    <Building className="h-5 w-5" />
+                    <span>Sign in with Microsoft</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full flex items-center space-x-2"
+                    onClick={() => handleOAuthLogin("SSO")}
+                    type="button"
+                  >
+                    <LockKeyhole className="h-5 w-5" />
+                    <span>Sign in with SSO</span>
+                  </Button>
+                </div>
+                <div className="relative my-6 text-center">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-gray-300" />
+                  </div>
+                  <div className="relative inline-block px-2 text-sm text-gray-500 bg-white dark:bg-card">
+                    Or continue with email
+                  </div>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
+                      required
+                      disabled={isLoading}
+                    />
+                    <Link
+                      href="/forgot-password"
+                      className="text-sm text-blue-600 hover:underline block text-right"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? "Signing In..." : "Continue"}
+                  </Button>
+                </form>
+              </>
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center space-x-2 p-4 bg-blue-50 rounded-md">
@@ -267,22 +272,18 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                {mfaMethod === "sms" && !smsRequestSent && (
+                {mfaMethod === "sms" && (
                   <Button
                     type="button"
                     onClick={handleRequestSmsCode}
                     className="w-full"
-                    disabled={smsRequestLoading || resendCooldown > 0}
+                    disabled={resendCooldown > 0}
                   >
-                    {smsRequestLoading ? "Sending SMS..." : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Request SMS Code"}
+                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Request SMS Code"}
                   </Button>
                 )}
-                {mfaMethod === "sms" && smsRequestSent && (
-                  <p className="text-sm text-green-600 text-center">SMS code sent. Check your phone (and console for demo code)!</p>
-                )}
 
-
-                <form onSubmit={(e) => handleSubmit(e, currentUserType)} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="mfa-code">Authentication Code</Label>
                     <Input
@@ -297,22 +298,10 @@ export default function LoginPage() {
                   </div>
 
                   <div className="flex space-x-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={resetForm}
-                      className="flex-1"
-                      disabled={isLoading}
-                    >
+                    <Button type="button" variant="outline" onClick={resetForm} className="flex-1" disabled={isLoading}>
                       Back
                     </Button>
-                    <Button
-                      type="submit"
-                      className={`flex-1 ${
-                        currentUserType === "photographer" ? "bg-green-600 hover:bg-green-700" : ""
-                      }`}
-                      disabled={isLoading}
-                    >
+                    <Button type="submit" className={`flex-1`} disabled={isLoading}>
                       {isLoading ? "Verifying..." : "Verify & Sign In"}
                     </Button>
                   </div>

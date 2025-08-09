@@ -4,30 +4,18 @@ import { cookies } from "next/headers"
 import { sql } from "@/lib/db"
 import bcrypt from "bcryptjs"
 import speakeasy from "speakeasy"
-import { getSmsMfaCode, smsMfaCodes } from "../request-sms-mfa/route" // Import getSmsMfaCode and the map itself
-
-// Helper function from lib/auth.ts - ensure it's consistent or import directly
-function generateSimpleToken(user: any): string {
-  const tokenData = {
-    userId: user.id,
-    email: user.email,
-    firstName: user.first_name,
-    lastName: user.last_name,
-    userType: user.user_type,
-    timestamp: Date.now(),
-  }
-  return Buffer.from(JSON.stringify(tokenData)).toString("base64")
-}
+import { getSmsMfaCode, smsMfaCodes } from "../request-sms-mfa/route"
+import { generateToken } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, password, userType, mfaCode } = body
+    const { email, password, mfaCode } = body
 
-    console.log("Login attempt:", { email, userType, hasMfaCode: !!mfaCode })
+    console.log("Login attempt:", { email, hasMfaCode: !!mfaCode })
 
-    if (!email || !password || !userType) {
-      return NextResponse.json({ error: "Email, password, and user type are required" }, { status: 400 })
+    if (!email || !password) {
+      return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
     const [user] = await sql`
@@ -45,10 +33,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-    if (user.user_type !== userType) {
-      return NextResponse.json({ error: "Invalid user type for this account" }, { status: 401 })
-    }
-
     // MFA handling
     if (user.mfa_method) {
       if (!mfaCode) {
@@ -56,7 +40,7 @@ export async function POST(request: NextRequest) {
           message: "Credentials verified",
           requiresMFA: true,
           mfaMethod: user.mfa_method,
-          userId: user.id, // Pass userId for SMS code request if needed
+          userId: user.id,
         })
       }
 
@@ -77,7 +61,7 @@ export async function POST(request: NextRequest) {
         const storedSmsCode = getSmsMfaCode(user.id)
         if (storedSmsCode && mfaCode === storedSmsCode) {
           isMfaCodeValid = true
-          smsMfaCodes.delete(user.id) // Invalidate code after successful use
+          smsMfaCodes.delete(user.id)
           console.log(`SMS MFA verification for ${user.email}: ${isMfaCodeValid}`)
         } else {
           console.log(`SMS MFA verification for ${user.email}: Invalid or expired code provided`)
@@ -89,7 +73,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const token = generateSimpleToken(user)
+    const token = generateToken(user)
 
     const cookieStore = cookies()
     cookieStore.set("auth-token", token, {
