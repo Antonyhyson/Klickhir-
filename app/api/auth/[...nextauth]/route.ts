@@ -48,13 +48,7 @@ const authOptions: NextAuthOptions = {
   },
 }
 
-async function GET(req: Request) {
-  return NextAuth(authOptions)(req)
-}
+const handler = NextAuth(authOptions)
 
-async function POST(req: Request) {
-  return NextAuth(authOptions)(req)
-}
-
-export { GET, POST }
+export { handler as GET, handler as POST }
 export { authOptions }
