@@ -1,44 +1,51 @@
--- Create users table
-CREATE TABLE IF NOT EXISTS users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  first_name VARCHAR(100) NOT NULL,
-  last_name VARCHAR(100) NOT NULL,
-  phone VARCHAR(20) NOT NULL,
-  user_type VARCHAR(20) NOT NULL CHECK (user_type IN ('client', 'photographer')),
-  location_country VARCHAR(2) NOT NULL,
-  currency VARCHAR(3) NOT NULL,
-  mfa_method VARCHAR(20) NOT NULL CHECK (mfa_method IN ('authenticator', 'sms')),
-  mfa_secret VARCHAR(255),
-  is_verified BOOLEAN DEFAULT FALSE,
-  is_active BOOLEAN DEFAULT TRUE,
+CREATE TABLE IF NOT EXISTS photographer_profiles (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  bio TEXT NOT NULL,
+  specialties TEXT[] NOT NULL,
+  camera_equipment TEXT[] NOT NULL,
+  hourly_rate NUMERIC(10,2) NOT NULL,
+  availability_status VARCHAR(20) NOT NULL,
+  rating NUMERIC(3,2) NOT NULL,
+  total_reviews INT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  -- NEW: Add for password reset functionality
-  reset_password_token VARCHAR(255),
-  reset_password_expires TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS saved_photographers (
+CREATE TABLE IF NOT EXISTS client_profiles (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  photographer_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  photography_type VARCHAR(100),
+  duration_hours INT,
+  budget NUMERIC(10,2),
+  currency VARCHAR(3),
+  job_date DATE,
+  job_time TIME,
+  location TEXT,
+  transportation_fee BOOLEAN DEFAULT FALSE,
+  status VARCHAR(20),
+  is_urgent BOOLEAN DEFAULT FALSE,
+  is_collaboration BOOLEAN DEFAULT FALSE,
+  photographers_needed INT DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(client_id, photographer_id) -- A client can save a photographer only once
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create saved jobs table (for photographers to save jobs)
-CREATE TABLE IF NOT EXISTS saved_jobs (
+CREATE TABLE IF NOT EXISTS portfolio_posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   photographer_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  project_name VARCHAR(255) NOT NULL,
+  description TEXT,
+  location TEXT,
+  project_date DATE,
+  images TEXT[],
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(photographer_id, job_id) -- A photographer can save a job only once
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
--- Add indexes for better performance on new tables
-CREATE INDEX IF NOT EXISTS idx_saved_photographers_client_id ON saved_photographers(client_id);
-CREATE INDEX IF NOT EXISTS idx_saved_photographers_photographer_id ON saved_photographers(photographer_id);
-CREATE INDEX IF NOT EXISTS idx_saved_jobs_photographer_id ON saved_jobs(photographer_id);
-CREATE INDEX IF NOT EXISTS idx_saved_jobs_job_id ON saved_jobs(job_id);

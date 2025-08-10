@@ -7,10 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, Shield, Mail, Building, LockKeyhole } from "lucide-react"
+import { ArrowLeft, Shield } from "lucide-react" // Removed non-existent icons
 import { GlitterBackground } from "@/components/glitter-background"
 import { useToast } from "@/hooks/use-toast"
-import { signIn, getSession } from "next-auth/react"
 
 export default function LoginPage() {
   const { toast } = useToast()
@@ -136,31 +135,6 @@ export default function LoginPage() {
     setResendCooldown(0)
   }
 
-  const handleGoogleLogin = async () => {
-    try {
-      // Use NextAuth signIn with redirect
-      await signIn("google", {
-        callbackUrl: "/select-role?oauth=true",
-      })
-    } catch (error) {
-      console.error("Google login error:", error)
-      toast({
-        title: "Login Failed",
-        description: "There was an error signing in with Google. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleOAuthLogin = (provider: string) => {
-    // For Microsoft and SSO, show a demo message
-    toast({
-      title: "Demo Mode",
-      description: `${provider} login is not implemented in this demo. Please use Google or email/password login.`,
-      variant: "default",
-    })
-  }
-
   return (
     <div className="min-h-screen relative flex items-center justify-center p-4">
       <GlitterBackground />
@@ -188,31 +162,13 @@ export default function LoginPage() {
             {!showMFA ? (
               <>
                 <div className="space-y-4">
-                  <Button 
-                    variant="outline" 
-                    className="w-full flex items-center space-x-2"
-                    onClick={handleGoogleLogin}
-                    type="button"
-                  >
-                    <Mail className="h-5 w-5" />
+                  <Button variant="outline" className="w-full flex items-center space-x-2">
                     <span>Sign in with Google</span>
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full flex items-center space-x-2"
-                    onClick={() => handleOAuthLogin("Microsoft")}
-                    type="button"
-                  >
-                    <Building className="h-5 w-5" />
+                  <Button variant="outline" className="w-full flex items-center space-x-2">
                     <span>Sign in with Microsoft</span>
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full flex items-center space-x-2"
-                    onClick={() => handleOAuthLogin("SSO")}
-                    type="button"
-                  >
-                    <LockKeyhole className="h-5 w-5" />
+                  <Button variant="outline" className="w-full flex items-center space-x-2">
                     <span>Sign in with SSO</span>
                   </Button>
                 </div>
