@@ -3,7 +3,8 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Camera, Users, Globe, Shield, Star, CheckCircle } from "lucide-react"
-import { GlitterBackground, SandstormBackground } from "@/components/glitter-background"
+import { GlitterBackground } from "@/components/glitter-background"
+import { SandFlow } from "@/components/sand-flow"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function HomePage() {
@@ -42,7 +43,7 @@ export default function HomePage() {
 
       {/* Sophisticated Hero Section */}
       <section className="hero-section sandstorm-container py-32 relative flex items-center justify-center min-h-[calc(100vh-65px)]">
-        <SandstormBackground />
+        <SandFlow />
         <div className="container mx-auto px-4 text-center relative z-10 animate-fade-in-up">
           <h1 className="hero-title mb-8 animate-slide-in-left">Klickhiré</h1>
           <p className="hero-subtitle mb-16 max-w-4xl mx-auto animate-slide-in-right">
